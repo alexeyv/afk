@@ -140,45 +140,45 @@ User can run a single prompt against Claude Code CLI and see what happens—real
 ### Story 1.1: Git Operations Foundation
 
 As a framework developer,
-I want a git module that queries repo state and parses commit messages,
+I want a `Git` class that queries repo state and parses commit messages,
 So that the framework can detect what the agent produced.
 
 **Acceptance Criteria:**
 
 **Given** a git repository exists in the target directory
-**When** I call `get_head_commit()`
+**When** I instantiate `Git(repo_path)` and call `git.head_commit()`
 **Then** I receive the current HEAD commit hash
 **And** returns None if no commits exist
 
 **Given** a commit with message following conventional format with `[outcome]` footer
-**When** I call `parse_commit_message(hash)`
-**Then** I receive the parsed outcome (e.g., "success", "failure")
-**And** I receive the full commit message text
+**When** I call `git.parse_commit_message(hash)`
+**Then** I receive a tuple of (outcome, message) where outcome is the parsed value (e.g., "success")
+**And** message is the full commit message text
 
 **Given** a commit without an `[outcome]` footer
-**When** I call `parse_commit_message(hash)`
-**Then** I receive outcome as None
-**And** I receive the full commit message text
+**When** I call `git.parse_commit_message(hash)`
+**Then** I receive a tuple of (None, message)
+**And** message is the full commit message text
 
 **Given** two commit hashes
-**When** I call `commits_between(before, after)`
+**When** I call `git.commits_between(before, after)`
 **Then** I receive a list of commit hashes made between those points
 **And** the list is ordered oldest to newest
 
 ### Story 1.2: Driver - Execute Prompt via Script Wrapper
 
 As a framework user,
-I want to execute a prompt against Claude Code CLI with real-time streaming,
+I want a `Driver` class to execute prompts against Claude Code CLI with real-time streaming,
 So that I can watch the agent work and have output logged.
 
 **Acceptance Criteria:**
 
 **Given** Claude Code CLI is available on PATH
-**When** I call `run_prompt(prompt, workspace, log_file)`
+**When** I instantiate `Driver(workspace)` and call `driver.run(prompt, log_file)`
 **Then** the prompt is passed to Claude Code CLI in the specified workspace
 **And** output streams to terminal in real-time
 **And** output is captured to the specified log file
-**And** the function blocks until the process exits
+**And** the method blocks until the process exits
 
 **Given** the `script` command is used to wrap CLI execution
 **When** the agent runs
@@ -218,30 +218,26 @@ So that I know what the agent produced.
 ### Story 1.4: Exception Handling for Prompt Execution
 
 As a framework user,
-I want clear exceptions when prompt execution fails,
+I want clear errors when prompt execution fails,
 So that I can understand what went wrong and take corrective action.
 
 **Acceptance Criteria:**
 
 **Given** a prompt execution that produces zero commits
 **When** the driver completes
-**Then** a `NoCommitError` is raised
-**And** the error message indicates no commit was detected
+**Then** a `RuntimeError` is raised with message indicating no commit was detected
 
 **Given** a prompt execution that produces multiple commits
 **When** the driver completes
-**Then** a `MultipleCommitsError` is raised
-**And** the error message lists the commit hashes
+**Then** a `RuntimeError` is raised with message listing the commit hashes
 
 **Given** Claude Code CLI is not available on PATH
 **When** I attempt to run a prompt
-**Then** a `CLIUnavailableError` is raised
-**And** the error message explains how to install Claude Code CLI
+**Then** a `RuntimeError` is raised with message explaining how to install Claude Code CLI
 
 **Given** the CLI process dies unexpectedly (non-zero exit, signal)
 **When** the driver completes
-**Then** a `ProcessDiedError` is raised
-**And** the error includes exit code or signal information
+**Then** a `RuntimeError` is raised with exit code or signal information
 **And** the partial log file is preserved for debugging
 
 ---
@@ -253,46 +249,46 @@ User can run multiple prompts in sequence with each turn numbered, labeled, and 
 ### Story 2.1: Turn Data Structure
 
 As a framework developer,
-I want a Turn entity that captures all information about a single prompt execution,
+I want a `Turn` class that captures all information about a single prompt execution,
 So that I can track and reference individual turns in a session.
 
 **Acceptance Criteria:**
 
 **Given** a prompt execution completes
-**When** I create a Turn record
+**When** I create a `Turn` instance
 **Then** it contains turn_number (int, starting from 1)
 **And** it contains transition_type (string, e.g., "init", "coding")
 **And** it contains result (TurnResult or None if exception)
 **And** it contains log_file path
 **And** it contains timestamp of execution
 
-**Given** a Turn record exists
+**Given** a `Turn` instance exists
 **When** I access its properties
 **Then** all fields are immutable (dataclass frozen=True)
 
 ### Story 2.2: Session Tracking
 
 As a framework user,
-I want a Session that tracks all turns in sequence,
+I want a `Session` class that tracks all turns in sequence,
 So that I can review what happened across the entire run.
 
 **Acceptance Criteria:**
 
-**Given** a new Session is created
+**Given** a new `Session` is created
 **When** I add turns to it
 **Then** turn numbers are assigned sequentially starting from 1
 **And** turns are stored in order
 
-**Given** a Session with multiple turns
-**When** I call `get_turn(n)`
-**Then** I receive the Turn with turn_number == n
+**Given** a `Session` with multiple turns
+**When** I call `session.turn(n)`
+**Then** I receive the `Turn` with turn_number == n
 **And** raises KeyError if turn doesn't exist
 
-**Given** a Session with turns
+**Given** a `Session` with turns
 **When** I iterate over the session
 **Then** I receive turns in chronological order
 
-**Given** a Session
+**Given** a `Session`
 **When** I access `session.turns`
 **Then** I receive an immutable view of all turns
 
@@ -321,23 +317,23 @@ So that I can easily find logs for specific turns.
 ### Story 2.4: Turn Execution Integration
 
 As a framework user,
-I want to execute a turn that uses the driver and records results in the session,
+I want to execute a turn that uses the `Driver` and records results in the `Session`,
 So that turn tracking is automatic during prompt execution.
 
 **Acceptance Criteria:**
 
-**Given** a Session and a prompt with transition type
+**Given** a `Session` and a prompt with transition type
 **When** I call `session.execute_turn(prompt, transition_type)`
-**Then** the driver is invoked with the prompt
-**And** a Turn record is created with the next turn number
-**And** the Turn is added to the session
-**And** the Turn is returned
+**Then** the `Driver` is invoked with the prompt
+**And** a `Turn` instance is created with the next turn number
+**And** the `Turn` is added to the session
+**And** the `Turn` is returned
 
 **Given** a turn execution that raises an exception
 **When** the exception occurs
-**Then** a Turn record is still created
-**And** the Turn's result is None
-**And** the Turn's log file is preserved
+**Then** a `Turn` instance is still created
+**And** the `Turn`'s result is None
+**And** the `Turn`'s log file is preserved
 **And** the exception propagates after recording
 
 ---
@@ -356,13 +352,13 @@ So that I can understand what changes came from where.
 
 **Given** a turn executes and the agent makes a commit
 **When** the turn completes
-**Then** the commit is recorded as agent-authored in the Turn record
+**Then** the commit is recorded as agent-authored in the `Turn` instance
 
 **Given** commits exist in the repo before a session starts
-**When** the session begins
+**When** the `Session` begins
 **Then** those commits are recognized as pre-existing (not agent commits)
 
-**Given** a session with multiple turns
+**Given** a `Session` with multiple turns
 **When** I query which commits were made by the agent
 **Then** I receive only commits made during turn executions
 **And** each commit is associated with its turn number
@@ -375,8 +371,8 @@ So that I can recover from bad agent output and try again.
 
 **Acceptance Criteria:**
 
-**Given** a session with turns 1, 2, 3 and their commits
-**When** I call `rewind_to_turn(2)`
+**Given** a `Session` with turns 1, 2, 3 and their commits
+**When** I call `session.rewind_to_turn(2)`
 **Then** the repository is reset to turn 2's commit (hard reset)
 **And** turn 3's changes are discarded
 **And** the working directory matches the state after turn 2
@@ -387,8 +383,8 @@ So that I can recover from bad agent output and try again.
 **And** the git log shows only commits up to the target turn
 
 **Given** an invalid turn number (e.g., turn 5 when only 3 exist)
-**When** I call `rewind_to_turn(5)`
-**Then** a clear error is raised
+**When** I call `session.rewind_to_turn(5)`
+**Then** a `RuntimeError` is raised
 **And** the repository state is unchanged
 
 ### Story 3.3: Restart from Rewound State
@@ -430,44 +426,44 @@ So that I can describe how the machine should behave.
 **Acceptance Criteria:**
 
 **Given** I want to define a state
-**When** I create a State
+**When** I create a `State` instance
 **Then** it has a name (string identifier)
 **And** it has a prompt (or prompt path)
 **And** it has a transition map (outcome → next state name)
 
-**Given** a state with transitions `{"success": "coding", "failure": "halt"}`
+**Given** a `State` with transitions `{"success": "coding", "failure": "halt"}`
 **When** the outcome is "success"
 **Then** the next state is "coding"
 
-**Given** a state with no transitions defined (empty map)
-**When** the machine reaches this state
+**Given** a `State` with no transitions defined (empty map)
+**When** the `Machine` reaches this state
 **Then** it is recognized as a terminal state
 
 **Given** a transition map references an undefined state
-**When** the machine is validated
-**Then** an error is raised before execution begins
+**When** the `Machine` is validated
+**Then** a `RuntimeError` is raised before execution begins
 
 ### Story 4.2: Machine Definition and Validation
 
 As a framework user,
-I want to define a complete machine with multiple states,
+I want to define a complete `Machine` with multiple states,
 So that I can orchestrate complex agent workflows.
 
 **Acceptance Criteria:**
 
-**Given** multiple State definitions
-**When** I create a Machine
+**Given** multiple `State` definitions
+**When** I create a `Machine`
 **Then** it contains all states indexed by name
 **And** it has a designated start state
 
-**Given** a Machine definition
+**Given** a `Machine` definition
 **When** I call `machine.validate()`
 **Then** all state transitions point to valid states
 **And** the start state exists
 **And** at least one terminal state exists (reachable or not)
 
 **Given** the trivial loop (init → coding → coding...)
-**When** I define it as a Machine
+**When** I define it as a `Machine`
 **Then** it has two states: "init" and "coding"
 **And** init transitions to coding on success
 **And** coding transitions to coding on success (self-loop)
@@ -475,49 +471,49 @@ So that I can orchestrate complex agent workflows.
 ### Story 4.3: Machine Execution Loop
 
 As a framework user,
-I want the machine to execute states automatically based on outcomes,
+I want the `Machine` to execute states automatically based on outcomes,
 So that I don't have to manually trigger each transition.
 
 **Acceptance Criteria:**
 
-**Given** a valid Machine and a Session
+**Given** a valid `Machine` and a `Session`
 **When** I call `machine.run(session)`
 **Then** execution starts at the start state
 **And** each state's prompt is executed as a turn
 **And** the outcome determines the next state
 **And** execution continues until a terminal state is reached
 
-**Given** a machine running
+**Given** a `Machine` running
 **When** a terminal state is reached (no transitions)
 **Then** execution stops
-**And** the final turn result is returned
+**And** the final `Turn` result is returned
 
-**Given** a machine execution
+**Given** a `Machine` execution
 **When** an exception occurs during a turn
-**Then** the machine halts immediately
+**Then** the `Machine` halts immediately
 **And** the exception propagates
-**And** all completed turns are preserved in the session
+**And** all completed turns are preserved in the `Session`
 
 ### Story 4.4: Interrupt and Resume
 
 As a framework user,
-I want to interrupt a running machine and optionally resume or change state,
+I want to interrupt a running `Machine` and optionally resume or change state,
 So that I can intervene when something goes wrong.
 
 **Acceptance Criteria:**
 
-**Given** a machine is running
+**Given** a `Machine` is running
 **When** I send SIGINT (Ctrl+C)
 **Then** the current turn is interrupted
-**And** the machine stops after the current turn completes (or fails)
-**And** the session state is preserved
+**And** the `Machine` stops after the current turn completes (or fails)
+**And** the `Session` state is preserved
 
-**Given** an interrupted machine
+**Given** an interrupted `Machine`
 **When** I call `machine.resume(session)`
 **Then** execution continues from the current state
 **And** a new turn is started
 
-**Given** an interrupted machine
+**Given** an interrupted `Machine`
 **When** I call `machine.set_state(session, "init")`
 **Then** the current state is changed to "init"
 **And** subsequent resume starts from "init"
@@ -530,20 +526,20 @@ So that runaway loops don't execute forever.
 
 **Acceptance Criteria:**
 
-**Given** a Machine with max_turns=10
+**Given** a `Machine` with max_turns=10
 **When** execution reaches turn 10
 **Then** execution halts after turn 10 completes
-**And** a `MaxTurnsReached` exception is raised
-**And** all 10 turns are preserved in the session
+**And** a `RuntimeError` is raised with message indicating max turns reached
+**And** all 10 turns are preserved in the `Session`
 
-**Given** a Machine with no max_turns configured
+**Given** a `Machine` with no max_turns configured
 **When** execution runs
 **Then** it continues until a terminal state or exception
 
-**Given** max_turns=5 and the machine terminates at turn 3
+**Given** max_turns=5 and the `Machine` terminates at turn 3
 **When** execution completes
 **Then** no exception is raised (normal termination)
-**And** only 3 turns exist in the session
+**And** only 3 turns exist in the `Session`
 
 ---
 
