@@ -1,6 +1,6 @@
 # Story 1.1: Git Operations Foundation
 
-**Status:** Ready for Review
+**Status:** Done
 
 ## Story
 
@@ -265,13 +265,26 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - All tests pass (8/8), ruff linting passes
 - Followed red-green-refactor cycle: wrote failing tests first, then implementation
 
+**Code Review Fixes (2025-12-10):**
+- Added TestCommitMessage class with tests for commit_message() and invalid hash RuntimeError
+- Fixed parse_commit_message() regex to match last [outcome] (footer), not first (body)
+- Added test for outcome in footer taking precedence over body
+- Exported Git class from afk/__init__.py for cleaner imports
+- Improved make_commit() test helper to use UUID for unique filenames (parallel-safe)
+- Changed SHA test to accept both SHA-1 (40) and SHA-256 (64) hex strings
+- Pinned pytest and ruff versions in pyproject.toml
+- Final test count: 15 tests passing, ruff clean
+
+**Note:** Implementation diverges from Dev Notes guidance in places (e.g., test helper uses UUID, outcome regex is more permissive). Actual code is authoritative.
+
 ### Change Log
 
 - 2025-12-10: Initial implementation of Git operations foundation - all ACs satisfied
+- 2025-12-10: Code review fixes - regex footer matching, test coverage, public API export
 
 ### File List
 
 - pyproject.toml (new)
-- afk/__init__.py (new)
-- afk/git.py (new)
-- tests/test_git.py (new)
+- afk/__init__.py (new, modified: added Git export)
+- afk/git.py (new, modified: fixed regex to match footer)
+- tests/test_git.py (new, modified: added 3 new tests, improved helper)

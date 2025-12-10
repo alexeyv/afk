@@ -17,6 +17,7 @@ afk is a **state machine executor**, not a loop orchestrator. The framework exec
 ## Technology Stack
 
 - **Language:** Python 3.x
+- **System:** git (must be on PATH)
 - **CLI Framework:** click
 - **Testing:** pytest
 - **Linting/Formatting:** ruff
@@ -53,8 +54,8 @@ Description of changes.
 
 - `snake_case` for functions, variables, modules
 - `PascalCase` for classes
-- No exception hierarchy—use `RuntimeError` with descriptive messages
-- Let exceptions propagate with full stack trace
+- No exception hierarchy—use `RuntimeError` for explicit errors
+- Never wrap library exceptions—let them propagate with full stack trace
 - Skip docstrings unless genuinely clarifying
 
 ### Project Structure

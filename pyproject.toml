@@ -1,0 +1,12 @@
+[project]
+name = "afk"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=9,<10", "ruff>=0.14,<1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
