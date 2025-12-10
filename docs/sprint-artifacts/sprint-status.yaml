@@ -1,0 +1,90 @@
+# generated: 2025-12-09
+# project: afk
+# project_key: afk
+# tracking_system: file-system
+# story_location: docs/sprint-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder
+#   - ready-for-dev: Draft approved and story context created
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically drafts next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2025-12-09
+project: afk
+project_key: afk
+tracking_system: file-system
+story_location: docs/sprint-artifacts
+
+development_status:
+  # Epic 1: Core Prompt Execution
+  epic-1: in-progress
+  1-1-git-operations-foundation: ready-for-dev
+  1-2-driver-execute-prompt-via-script-wrapper: backlog
+  1-3-commit-detection-and-result-extraction: backlog
+  1-4-exception-handling-for-prompt-execution: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Turn Tracking & Session Management
+  epic-2: backlog
+  2-1-turn-data-structure: backlog
+  2-2-session-tracking: backlog
+  2-3-turn-based-logging: backlog
+  2-4-turn-execution-integration: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: State Recovery & Rewind
+  epic-3: backlog
+  3-1-agent-vs-user-commit-tracking: backlog
+  3-2-rewind-to-previous-turn: backlog
+  3-3-restart-from-rewound-state: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: State Machine Orchestration
+  epic-4: backlog
+  4-1-state-and-transition-definitions: backlog
+  4-2-machine-definition-and-validation: backlog
+  4-3-machine-execution-loop: backlog
+  4-4-interrupt-and-resume: backlog
+  4-5-turn-limits: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: CLI & Configuration
+  epic-5: backlog
+  5-1-cli-entry-point-and-basic-structure: backlog
+  5-2-headless-run-command: backlog
+  5-3-interactive-mode: backlog
+  5-4-status-and-inspection-commands: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Project Setup & Templates
+  epic-6: backlog
+  6-1-package-structure-and-installation: backlog
+  6-2-trivial-loop-experiment: backlog
+  6-3-workspace-initialization: backlog
+  6-4-readme-and-getting-started: backlog
+  epic-6-retrospective: optional
