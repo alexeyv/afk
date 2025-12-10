@@ -102,11 +102,11 @@ Create coverage matrix:
 ```
 ## FR Coverage Analysis
 
-| FR Number | PRD Requirement | Epic Coverage | Status |
-|-----------|----------------|---------------|---------|
-| FR1 | [PRD text] | Epic X Story Y | ✓ Covered |
-| FR2 | [PRD text] | **NOT FOUND** | ❌ MISSING |
-| FR3 | [PRD text] | Epic Z Story A | ✓ Covered |
+| FR Number | PRD Requirement | Epic Coverage  | Status    |
+| --------- | --------------- | -------------- | --------- |
+| FR1       | [PRD text]      | Epic X Story Y | ✓ Covered |
+| FR2       | [PRD text]      | **NOT FOUND**  | ❌ MISSING |
+| FR3       | [PRD text]      | Epic Z Story A | ✓ Covered |
 ```
 
 ### 5. Document Missing Coverage

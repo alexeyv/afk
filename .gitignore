@@ -2,6 +2,13 @@
 .claude/.env
 .claude/settings.local.json
 
+.codex/log
+.codex/auth.json
+.codex/version.json
+.codex/sessions
+.codex/history.jsonl
+
+
 # Python
 __pycache__/
 *.py[cod]
