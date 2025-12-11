@@ -66,6 +66,19 @@ class TestCommitMessage:
             git_repo.commit_message("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 
 
+class TestCommitSummary:
+    def test_returns_short_hash_and_subject(self, git_repo: Git):
+        commit_hash = make_commit(git_repo, "feat: add feature\n\nBody text here.")
+        summary = git_repo.commit_summary(commit_hash)
+        assert ": feat: add feature" in summary
+        assert len(summary.split(":")[0]) == 7  # Short hash is 7 chars
+
+    def test_invalid_hash_raises_runtime_error(self, git_repo: Git):
+        make_commit(git_repo, "initial")
+        with pytest.raises(RuntimeError):
+            git_repo.commit_summary("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+
+
 class TestParseCommitMessage:
     def test_commit_with_success_outcome(self, git_repo: Git):
         commit_hash = make_commit(git_repo, "feat: add feature\n\noutcome: success")
@@ -136,6 +149,13 @@ class TestParseCommitMessage:
         outcome2, _ = git_repo.parse_commit_message(commit_hash2)
         assert outcome2 == "failure"
 
+    def test_outcome_value_is_lowercased(self, git_repo: Git):
+        # Normalize outcome values for consistent comparison
+        msg = "feat: test\n\noutcome: SUCCESS"
+        commit_hash = make_commit(git_repo, msg)
+        outcome, _ = git_repo.parse_commit_message(commit_hash)
+        assert outcome == "success"
+
     def test_outcome_captures_multi_word_value(self, git_repo: Git):
         # LLMs may write multi-word outcomes - capture fully for error messages
         msg = "feat: test\n\noutcome: needs review"
@@ -150,7 +170,7 @@ class TestParseCommitMessage:
         )
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
-        assert outcome == "I think this was successful but needs verification"
+        assert outcome == "i think this was successful but needs verification"
 
 
 class TestCommitsBetween:
@@ -225,3 +245,22 @@ class TestRootCommit:
 
         with pytest.raises(RuntimeError, match=r"\d+ root commits"):
             git_repo.root_commit()
+
+    def test_empty_repo_raises(self, tmp_path: Path):
+        """Empty repo should raise error (git rev-list fails on unborn HEAD)."""
+        subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+        git = Git(str(tmp_path))
+
+        with pytest.raises(RuntimeError):
+            git.root_commit()
+
+
+class TestHeadCommitErrors:
+    """Tests for head_commit error paths."""
+
+    def test_not_git_repo_raises(self, tmp_path: Path):
+        """Non-git directory should raise 'Not a git repository'."""
+        git = Git(str(tmp_path))
+
+        with pytest.raises(RuntimeError, match="Not a git repository"):
+            git.head_commit()

@@ -20,4 +20,9 @@ addopts = "-q --tb=short"
 typeCheckingMode = "strict"
 # Only check our code, not dependencies
 include = ["afk"]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]
 # Run with: uv run pyright --threads

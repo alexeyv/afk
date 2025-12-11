@@ -1,5 +1,6 @@
 import os
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -8,6 +9,17 @@ from pathlib import Path
 from afk.git import Git
 
 _env_checked = False
+
+
+def _require_command(name: str, check_args: list[str] | None = None) -> None:
+    """Check that a command exists and optionally runs with given args."""
+    if shutil.which(name) is None:
+        raise RuntimeError(f"`{name}` not found on PATH")
+    if check_args is not None:
+        cmd = [name] + check_args
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"`{' '.join(cmd)}` failed (exit {result.returncode})")
 
 
 def _check_environment() -> None:
@@ -19,20 +31,9 @@ def _check_environment() -> None:
     if sys.platform == "win32":
         raise RuntimeError("Windows is not supported")
 
-    result = subprocess.run(
-        ["claude", "--version"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"""Claude Code CLI is not available.
-
-`claude --version` failed with exit code {result.returncode}.
-
-Ensure Claude Code is installed and working. Visit:
-https://claude.ai/download"""
-        )
+    _require_command("git", ["--version"])
+    _require_command("script")
+    _require_command("claude", ["--version"])
 
     _env_checked = True
 
@@ -59,8 +60,10 @@ class Driver:
 
         try:
             # Stream output to terminal. The `script` command captures everything
-            # (including ^C on interrupt) to the log file for later inspection.
-            # stdout=PIPE guarantees proc.stdout is not None
+            # (including ^C) to the log file for debugging.
+            #
+            # KeyboardInterrupt propagates intentionally - user interrupts should
+            # abort immediately. The log file preserves ^C for post-mortem.
             assert proc.stdout is not None
             for line in proc.stdout:
                 sys.stdout.buffer.write(line)

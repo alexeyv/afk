@@ -42,6 +42,10 @@ class Git:
     def commit_message(self, commit_hash: str) -> str:
         return self._run("log", "-1", "--format=%B", commit_hash, "--")
 
+    def commit_summary(self, commit_hash: str) -> str:
+        """Return short hash and subject line, e.g. 'abc1234: feat: add foo'."""
+        return self._run("log", "-1", "--format=%h: %s", commit_hash, "--")
+
     def parse_commit_message(self, commit_hash: str) -> tuple[Optional[str], str]:
         message = self.commit_message(commit_hash)
         # Find outcome: value footer (Conventional Commits compliant)
@@ -57,7 +61,7 @@ class Git:
             candidate = raw.strip()
             if not candidate:
                 continue
-            outcome = candidate
+            outcome = candidate.lower()
 
         return (outcome, message)
 

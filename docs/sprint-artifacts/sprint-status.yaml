@@ -50,8 +50,8 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Turn Tracking & Session Management
-  epic-2: backlog
-  2-1-turn-data-structure: backlog
+  epic-2: in-progress
+  2-1-turn-data-structure: ready-for-dev
   2-2-session-tracking: backlog
   2-3-turn-based-logging: backlog
   2-4-turn-execution-integration: backlog

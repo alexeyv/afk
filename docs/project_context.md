@@ -29,6 +29,7 @@ afk is a **state machine executor**, not a loop orchestrator. The framework exec
 ### Version Control
 
 - **Agents never push.** Human reviews and pushes.
+- **Before any commit, run quality checks** (see "Linting and Code Quality Checks" below). All must pass.
 - Planning workflows (PRD, architecture, epics): commit at workflow completion
 - Dev workflow (dev-story): commit after each step
 - Commit messages: `docs:` prefix for planning artifacts, conventional commits for code
@@ -55,6 +56,7 @@ outcome: success
 
 - `snake_case` for functions, variables, modules
 - `PascalCase` for classes
+- No circular dependencies—fix the design, don't work around with `TYPE_CHECKING` hacks
 - No exception hierarchy—use `RuntimeError` for explicit errors
 - Never wrap library exceptions—let them propagate with full stack trace
 - Never dispatch on error type (no `except SomeError`)—catch-all or let it crash
@@ -99,7 +101,7 @@ The framework ships with sensible opinions. Applications override when they know
 - Commit message schema: default success/failure, overridable
 - Success criteria: default one commit, overridable
 
-### Quality Gate (Before Commit)
+### Linting and Code Quality Checks
 
 All three must pass before committing:
 

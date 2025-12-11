@@ -486,7 +486,7 @@ class TestCLIAvailability:
             Driver(Git(str(repo_path)))
 
         error_msg = str(exc_info.value)
-        assert "not available" in error_msg.lower() or "unavailable" in error_msg.lower()
+        assert "claude" in error_msg and "failed" in error_msg
 
     def test_cli_unavailable_mentions_version_failed(self, tmp_path: Path, monkeypatch):
         """Error message should mention version check failed."""

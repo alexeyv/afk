@@ -164,12 +164,10 @@ class TestZeroCommitsError:
         with pytest.raises(RuntimeError) as exc_info:
             execute_turn(driver, "test", str(tmp_path / "test.log"))
 
-        assert "No commit detected" in str(exc_info.value)
+        assert "No commit at end of turn" in str(exc_info.value)
 
-    def test_zero_commits_error_includes_head_before(
-        self, git_repo: Git, tmp_path: Path
-    ):
-        """Error message should include HEAD before value."""
+    def test_zero_commits_error_includes_head(self, git_repo: Git, tmp_path: Path):
+        """Error message should include HEAD value."""
         head = make_commit(git_repo, "initial")
 
         def mock_run(prompt: str, log_file: str) -> int:
@@ -181,26 +179,8 @@ class TestZeroCommitsError:
             execute_turn(driver, "test", str(tmp_path / "test.log"))
 
         error_msg = str(exc_info.value)
-        assert "HEAD before" in error_msg
+        assert "HEAD:" in error_msg
         assert head[:7] in error_msg  # Short hash should appear
-
-    def test_zero_commits_error_includes_head_after(
-        self, git_repo: Git, tmp_path: Path
-    ):
-        """Error message should include HEAD after value."""
-        head = make_commit(git_repo, "initial")
-
-        def mock_run(prompt: str, log_file: str) -> int:
-            return 0
-
-        driver = mock_driver(git_repo, mock_run)
-
-        with pytest.raises(RuntimeError) as exc_info:
-            execute_turn(driver, "test", str(tmp_path / "test.log"))
-
-        error_msg = str(exc_info.value)
-        assert "HEAD after" in error_msg
-        assert head[:7] in error_msg
 
     def test_zero_commits_error_includes_log_file_path(
         self, git_repo: Git, tmp_path: Path
@@ -422,9 +402,7 @@ class TestSignalTerminationError:
         error_msg = str(exc_info.value)
         assert "9" in error_msg or "SIGKILL" in error_msg
 
-    def test_signal_termination_includes_log_path(
-        self, git_repo: Git, tmp_path: Path
-    ):
+    def test_signal_termination_includes_log_path(self, git_repo: Git, tmp_path: Path):
         """Error should include log file path."""
         make_commit(git_repo, "initial")
         log_path = str(tmp_path / "signal.log")
@@ -439,3 +417,159 @@ class TestSignalTerminationError:
             execute_turn(driver, "test", log_path)
 
         assert log_path in str(exc_info.value)
+
+
+class TestAncestryMismatchError:
+    """Tests for ancestry mismatch error (HEAD moved but not on expected path)."""
+
+    def test_ancestry_mismatch_error_raised(self, git_repo: Git, tmp_path: Path):
+        """Error raised when HEAD changes but commits_between returns empty."""
+        make_commit(git_repo, "initial")
+
+        def mock_run(prompt: str, log_file: str) -> int:
+            # Simulate agent switching to orphan branch
+            repo_path = Path(git_repo.repo_path)
+            subprocess.run(
+                ["git", "checkout", "--orphan", "orphan"],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "orphan.txt").write_text("orphan content")
+            subprocess.run(
+                ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "orphan commit"],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+            )
+            return 0
+
+        driver = mock_driver(git_repo, mock_run)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            execute_turn(driver, "test", str(tmp_path / "test.log"))
+
+        error_msg = str(exc_info.value)
+        assert "ancestry path" in error_msg.lower()
+        assert "HEAD" in error_msg
+
+    def test_ancestry_mismatch_shows_before_and_after(
+        self, git_repo: Git, tmp_path: Path
+    ):
+        """Error should show HEAD before and after values."""
+        head_before = make_commit(git_repo, "initial")
+
+        def mock_run(prompt: str, log_file: str) -> int:
+            repo_path = Path(git_repo.repo_path)
+            subprocess.run(
+                ["git", "checkout", "--orphan", "orphan"],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "orphan.txt").write_text("orphan")
+            subprocess.run(
+                ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "orphan"],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+            )
+            return 0
+
+        driver = mock_driver(git_repo, mock_run)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            execute_turn(driver, "test", str(tmp_path / "test.log"))
+
+        error_msg = str(exc_info.value)
+        assert head_before[:7] in error_msg
+        assert "HEAD before" in error_msg
+        assert "HEAD after" in error_msg
+
+
+class TestReadLogTailErrors:
+    """Tests for _read_log_tail error handling."""
+
+    def test_log_tail_handles_missing_file(self, git_repo: Git, tmp_path: Path):
+        """Should gracefully handle missing log file."""
+        make_commit(git_repo, "initial")
+
+        def mock_run(prompt: str, log_file: str) -> int:
+            # Don't create log file
+            return 0
+
+        driver = mock_driver(git_repo, mock_run)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            execute_turn(driver, "test", str(tmp_path / "nonexistent.log"))
+
+        # Should still get error message, just with fallback log content
+        assert "No commit at end of turn" in str(exc_info.value)
+
+
+class TestMultipleCommitsErrorEdgeCases:
+    """Tests for edge cases in multiple commits error."""
+
+    def test_handles_unreadable_commit(
+        self, git_repo: Git, tmp_path: Path, monkeypatch
+    ):
+        """Should handle case where commit_summary fails for a commit."""
+        make_commit(git_repo, "initial")
+
+        def mock_run(prompt: str, log_file: str) -> int:
+            make_commit(git_repo, "feat: first")
+            make_commit(git_repo, "fix: second")
+            return 0
+
+        driver = mock_driver(git_repo, mock_run)
+
+        # Make commit_summary fail
+        def failing_summary(commit_hash: str) -> str:
+            raise RuntimeError("simulated failure")
+
+        monkeypatch.setattr(git_repo, "commit_summary", failing_summary)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            execute_turn(driver, "test", str(tmp_path / "test.log"))
+
+        error_msg = str(exc_info.value)
+        assert "could not read" in error_msg.lower()
+
+
+class TestHeadUnbornAfterExecution:
+    """Tests for HEAD unborn after execution edge case."""
+
+    def test_head_unborn_after_execution_raises(self, git_repo: Git, tmp_path: Path):
+        """Error raised if HEAD is unborn after execution."""
+        # Start with a commit
+        make_commit(git_repo, "initial")
+
+        def mock_run(prompt: str, log_file: str) -> int:
+            # Simulate agent doing something that leaves HEAD unborn
+            repo_path = Path(git_repo.repo_path)
+            # Switch to orphan branch and don't commit
+            subprocess.run(
+                ["git", "checkout", "--orphan", "empty"],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "rm", "-rf", "."],
+                cwd=repo_path,
+                capture_output=True,
+            )
+            return 0
+
+        driver = mock_driver(git_repo, mock_run)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            execute_turn(driver, "test", str(tmp_path / "test.log"))
+
+        assert "unborn" in str(exc_info.value).lower()

@@ -1,11 +1,12 @@
 import signal
-from pathlib import Path
+import subprocess
 
 from afk.driver import Driver
+from afk.git import Git
 from afk.turn_result import TurnResult
 
 # Map common signals to human-readable names
-SIGNAL_NAMES = {
+SIGNAL_NAMES: dict[int, str] = {
     signal.SIGTERM: "SIGTERM",
     signal.SIGKILL: "SIGKILL",
     signal.SIGINT: "SIGINT",
@@ -14,32 +15,37 @@ SIGNAL_NAMES = {
 }
 
 
-def _read_last_lines(file_path: str, n: int = 5) -> str:
-    """Read last n lines from a file, or all if fewer lines exist."""
+def _read_log_tail(file_path: str) -> str:
+    """Read last 5 lines from log, max 2000 bytes total."""
+    import shlex
+
     try:
-        path = Path(file_path)
-        if not path.exists():
-            return "(log file not found)"
-        lines = path.read_text().splitlines()
-        last_lines = lines[-n:] if len(lines) >= n else lines
-        return "\n".join(last_lines)
+        # First cap bytes to avoid reading huge files, then take last 5 lines
+        result = subprocess.run(
+            f"tail -c 2000 {shlex.quote(file_path)} | tail -n 5",
+            shell=True,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return "(could not read log file)"
+        return result.stdout.rstrip("\n")
     except Exception:
         return "(could not read log file)"
 
 
 def _multiple_commits_error(
     commits: list[str],
-    git: "Git",
+    git: Git,
 ) -> RuntimeError:
     """Build detailed error for multiple commits case."""
-    from afk.git import Git  # noqa: F811 - type hint forward ref
 
     # Get hash:subject for each commit
-    commit_lines = []
+    commit_lines: list[str] = []
     for commit_hash in commits:
         try:
-            output = git._run("log", "-1", "--format=%h: %s", commit_hash, "--")
-            commit_lines.append(f"  - {output}")
+            summary = git.commit_summary(commit_hash)
+            commit_lines.append(f"  - {summary}")
         except Exception:
             commit_lines.append(f"  - {commit_hash[:7]}: (could not read)")
 
@@ -83,23 +89,37 @@ Review the log file for error details."""
 
 
 def _no_commit_error(
+    head: str,
+    log_file: str,
+) -> RuntimeError:
+    """Build detailed error when HEAD unchanged (agent made no commit)."""
+    last_lines = _read_log_tail(log_file)
+
+    msg = f"""No commit at end of turn.
+
+HEAD: {head[:7]}
+Log file: {log_file}
+
+Log tail:
+{last_lines}"""
+    return RuntimeError(msg)
+
+
+def _ancestry_mismatch_error(
     head_before: str | None,
     head_after: str,
     log_file: str,
 ) -> RuntimeError:
-    """Build detailed error for zero commits case."""
-    last_lines = _read_last_lines(log_file)
+    """Build detailed error when HEAD moved but not on expected ancestry path."""
     head_before_str = head_before[:7] if head_before else "(empty repo)"
-    head_after_str = head_after[:7]
 
-    msg = f"""No commit detected during turn execution.
+    msg = f"""HEAD changed but no commits found on ancestry path.
 
 HEAD before: {head_before_str}
-HEAD after: {head_after_str}
+HEAD after: {head_after[:7]}
 Log file: {log_file}
 
-Last 5 lines of log:
-{last_lines}"""
+This may indicate the agent switched branches or reset HEAD."""
     return RuntimeError(msg)
 
 
@@ -110,11 +130,8 @@ def execute_turn(
 ) -> TurnResult:
     """Execute a single turn: run prompt, detect commit, extract result.
 
-    Captures HEAD before execution, runs the driver, detects commits made,
-    and returns a TurnResult with the outcome extracted from the commit message.
-
-    This is the happy path implementation - expects exactly one commit.
-    Exception handling for zero/multiple commits is deferred to Story 1.4.
+    Raises RuntimeError for: zero commits, multiple commits, non-zero exit,
+    signal termination, or CLI unavailability.
     """
     git = driver.git
 
@@ -134,12 +151,16 @@ def execute_turn(
     if head_after is None:
         raise RuntimeError("No commits after execution (HEAD is unborn)")
 
+    # Check if HEAD changed at all
+    if head_before == head_after:
+        raise _no_commit_error(head_after, log_file)
+
     # Find commits made during execution
     commits = git.commits_between(head_before, head_after)
 
     # Validate exactly one commit
     if len(commits) == 0:
-        raise _no_commit_error(head_before, head_after, log_file)
+        raise _ancestry_mismatch_error(head_before, head_after, log_file)
     if len(commits) > 1:
         raise _multiple_commits_error(commits, git)
     commit_hash = commits[0]
