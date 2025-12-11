@@ -3,9 +3,6 @@ import subprocess
 from typing import Optional
 
 
-OUTCOME_MAX_LENGTH = 50
-
-
 class Git:
     def __init__(self, repo_path: str):
         self.repo_path = repo_path
@@ -59,8 +56,6 @@ class Git:
         for raw in matches:
             candidate = raw.strip()
             if not candidate:
-                continue
-            if len(candidate) > OUTCOME_MAX_LENGTH:
                 continue
             outcome = candidate
 

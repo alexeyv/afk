@@ -105,12 +105,12 @@ class TestParseCommitMessage:
         outcome, _ = git_repo.parse_commit_message(commit_hash)
         assert outcome is None
 
-    def test_outcome_ignores_excessively_long_value(self, git_repo: Git):
-        long_value = "x" * 60
+    def test_outcome_accepts_long_values(self, git_repo: Git):
+        long_value = "x" * 200
         msg = f"feat: add feature\n\noutcome: {long_value}"
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
-        assert outcome is None
+        assert outcome == long_value
 
     def test_outcome_with_special_characters(self, git_repo: Git):
         # Outcomes can include hyphens, underscores

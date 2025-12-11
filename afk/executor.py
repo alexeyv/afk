@@ -1,16 +1,9 @@
-from typing import Optional, Protocol
-
-from afk.git import Git
+from afk.driver import Driver
 from afk.turn_result import TurnResult
 
 
-class DriverProtocol(Protocol):
-    def run(self, prompt: str, log_file: str) -> int: ...
-
-
 def execute_turn(
-    driver: DriverProtocol,
-    git: Git,
+    driver: Driver,
     prompt: str,
     log_file: str,
 ) -> TurnResult:
@@ -22,8 +15,10 @@ def execute_turn(
     This is the happy path implementation - expects exactly one commit.
     Exception handling for zero/multiple commits is deferred to Story 1.4.
     """
+    git = driver.git
+
     # Capture HEAD before execution (may be None for empty repo)
-    head_before: Optional[str] = git.head_commit()
+    head_before = git.head_commit()
 
     # Execute the prompt via driver
     exit_code = driver.run(prompt, log_file)

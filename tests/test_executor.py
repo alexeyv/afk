@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from afk.driver import Driver
 from afk.executor import execute_turn
 from afk.git import Git
 from afk.turn_result import TurnResult
@@ -44,24 +45,28 @@ def make_commit(git: Git, message: str) -> str:
     return git.head_commit()
 
 
+def mock_driver(git: Git, run_fn) -> Driver:
+    """Create a mock driver with custom run function."""
+    driver = Mock(spec=Driver)
+    driver.git = git
+    driver.run = run_fn
+    return driver
+
+
 class TestExecuteTurnWithOneCommit:
     def test_returns_turn_result_with_single_commit(
         self, git_repo: Git, tmp_path: Path
     ):
-        # Setup: create initial commit so we have a before state
         make_commit(git_repo, "initial commit")
 
-        # Mock driver that creates a commit during run
         def mock_run(prompt: str, log_file: str) -> int:
             make_commit(git_repo, "feat: agent work\n\noutcome: success")
             return 0
 
-        driver = Mock()
-        driver.run = mock_run
+        driver = mock_driver(git_repo, mock_run)
 
         result = execute_turn(
             driver=driver,
-            git=git_repo,
             prompt="do something",
             log_file=str(tmp_path / "log.txt"),
         )
@@ -78,12 +83,10 @@ class TestExecuteTurnWithOneCommit:
             make_commit(git_repo, "fix: bug fix\n\noutcome: failure")
             return 0
 
-        driver = Mock()
-        driver.run = mock_run
+        driver = mock_driver(git_repo, mock_run)
 
         result = execute_turn(
             driver=driver,
-            git=git_repo,
             prompt="fix bug",
             log_file=str(tmp_path / "log.txt"),
         )
@@ -92,18 +95,14 @@ class TestExecuteTurnWithOneCommit:
         assert "fix: bug fix" in result.message
 
     def test_works_with_no_prior_commits(self, git_repo: Git, tmp_path: Path):
-        # Empty repo - no initial commit
-
         def mock_run(prompt: str, log_file: str) -> int:
             make_commit(git_repo, "feat: first feature\n\noutcome: success")
             return 0
 
-        driver = Mock()
-        driver.run = mock_run
+        driver = mock_driver(git_repo, mock_run)
 
         result = execute_turn(
             driver=driver,
-            git=git_repo,
             prompt="start project",
             log_file=str(tmp_path / "log.txt"),
         )
@@ -121,12 +120,10 @@ class TestExecuteTurnEdgeCases:
             make_commit(git_repo, "chore: update deps")
             return 0
 
-        driver = Mock()
-        driver.run = mock_run
+        driver = mock_driver(git_repo, mock_run)
 
         result = execute_turn(
             driver=driver,
-            git=git_repo,
             prompt="update",
             log_file=str(tmp_path / "log.txt"),
         )
@@ -138,15 +135,13 @@ class TestExecuteTurnEdgeCases:
         make_commit(git_repo, "initial")
 
         def mock_run(prompt: str, log_file: str) -> int:
-            return 1  # Simulate failure
+            return 1
 
-        driver = Mock()
-        driver.run = mock_run
+        driver = mock_driver(git_repo, mock_run)
 
         with pytest.raises(RuntimeError, match="Driver exited with code 1"):
             execute_turn(
                 driver=driver,
-                git=git_repo,
                 prompt="fail",
                 log_file=str(tmp_path / "log.txt"),
             )

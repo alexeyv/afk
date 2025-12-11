@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from afk.git import Git
+
 _env_checked = False
 
 
@@ -24,9 +26,9 @@ def _check_environment() -> None:
 
 
 class Driver:
-    def __init__(self, workspace: str, *, model: str | None = None):
+    def __init__(self, git: Git, *, model: str | None = None):
         _check_environment()
-        self.workspace = workspace
+        self.git = git
         self.model = model
 
     def run(self, prompt: str, log_file: str) -> int:
@@ -37,7 +39,7 @@ class Driver:
 
         proc = subprocess.Popen(
             cmd,
-            cwd=self.workspace,
+            cwd=self.git.repo_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             start_new_session=True,
