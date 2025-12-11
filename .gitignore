@@ -1,13 +1,7 @@
 # Local configuration (not for version control)
 .claude/.env
 .claude/settings.local.json
-
-.codex/log
-.codex/auth.json
-.codex/version.json
-.codex/sessions
-.codex/history.jsonl
-
+.codex
 
 # Python
 __pycache__/
