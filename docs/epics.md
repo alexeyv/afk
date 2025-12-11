@@ -174,8 +174,9 @@ So that I can watch the agent work and have output logged.
 **Acceptance Criteria:**
 
 **Given** Claude Code CLI is available on PATH
-**When** I instantiate `Driver(workspace)` and call `driver.run(prompt, log_file)`
+**When** I instantiate `Driver(workspace)` or `Driver(workspace, model="model-name")` and call `driver.run(prompt, log_file)`
 **Then** the prompt is passed to Claude Code CLI in the specified workspace
+**And** if `model` was provided, the CLI is invoked with `--model <model>`
 **And** output streams to terminal in real-time
 **And** output is captured to the specified log file
 **And** the method blocks until the process exits

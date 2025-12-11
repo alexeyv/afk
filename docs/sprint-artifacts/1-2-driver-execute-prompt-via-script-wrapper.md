@@ -1,6 +1,6 @@
 # Story 1.2: Driver - Execute Prompt via Script Wrapper
 
-**Status:** ready-for-dev
+**Status:** Ready for Review
 
 ## Story
 
@@ -11,8 +11,9 @@ So that I can watch the agent work and have output logged.
 ## Acceptance Criteria
 
 1. **Given** Claude Code CLI is available on PATH
-   **When** I instantiate `Driver(workspace)` and call `driver.run(prompt, log_file)`
+   **When** I instantiate `Driver(workspace)` or `Driver(workspace, model="model-name")` and call `driver.run(prompt, log_file)`
    **Then** the prompt is passed to Claude Code CLI in the specified workspace
+   **And** if `model` was provided, the CLI is invoked with `--model <model>`
    **And** output streams to terminal in real-time
    **And** output is captured to the specified log file
    **And** the method blocks until the process exits
@@ -30,28 +31,28 @@ So that I can watch the agent work and have output logged.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `afk/driver.py` module with `Driver` class (AC: 1, 2)
-  - [ ] 1.1: Implement `Driver` class with `__init__(self, workspace: str)`
-  - [ ] 1.2: Implement `run(self, prompt: str, log_file: str) -> int` using `script` command
-  - [ ] 1.3: Build command array for `script` wrapping `claude` CLI with `--print` flag
-  - [ ] 1.4: Implement subprocess execution with real-time stdout passthrough
-  - [ ] 1.5: Ensure log file captures all output via `script` mechanism
-- [ ] Task 2: Implement signal handling for clean interruption (AC: 3)
-  - [ ] 2.1: Handle SIGINT gracefully - terminate child process group
-  - [ ] 2.2: Ensure no orphan processes (use process groups or explicit cleanup)
-  - [ ] 2.3: Preserve partial log output on interrupt
-- [ ] Task 3: Create tests for `Driver` class (AC: 1, 2, 3)
-  - [ ] 3.1: Create `tests/test_driver.py` with workspace fixture
-  - [ ] 3.2: Create `tests/fixtures/` directory with fake CLI scripts
-  - [ ] 3.3: Test `driver.run()` executes command and returns exit code
-  - [ ] 3.4: Test log file is created and contains output
-  - [ ] 3.5: Test SIGINT handling (process terminates, log preserved)
-- [ ] Task 4: Export Driver from package (AC: all)
-  - [ ] 4.1: Add `Driver` to `afk/__init__.py` exports
-- [ ] Task 5: Verify integration (AC: all)
-  - [ ] 5.1: Run full test suite with `pytest tests/test_driver.py -v`
-  - [ ] 5.2: Verify all acceptance criteria pass
-  - [ ] 5.3: Run `ruff check afk/ tests/` to verify linting
+- [x] Task 1: Create `afk/driver.py` module with `Driver` class (AC: 1, 2)
+  - [x] 1.1: Implement `Driver` class with `__init__(self, workspace: str, *, model: str | None = None)`
+  - [x] 1.2: Implement `run(self, prompt: str, log_file: str) -> int` using `script` command
+  - [x] 1.3: Build command array for `script` wrapping `claude` CLI with `--print` flag (and `--model` if set)
+  - [x] 1.4: Implement subprocess execution with real-time stdout passthrough
+  - [x] 1.5: Ensure log file captures all output via `script` mechanism
+- [x] Task 2: Implement signal handling for clean interruption (AC: 3)
+  - [x] 2.1: Handle SIGINT gracefully - terminate child process group
+  - [x] 2.2: Ensure no orphan processes (use process groups or explicit cleanup)
+  - [x] 2.3: Preserve partial log output on interrupt
+- [x] Task 3: Create tests for `Driver` class (AC: 1, 2, 3)
+  - [x] 3.1: Create `tests/test_driver.py` with workspace fixture
+  - [x] 3.2: Create `tests/fixtures/` directory with fake CLI scripts
+  - [x] 3.3: Test `driver.run()` executes command and returns exit code
+  - [x] 3.4: Test log file is created and contains output
+  - [x] 3.5: Test SIGINT handling (process terminates, log preserved)
+- [x] Task 4: Export Driver from package (AC: all)
+  - [x] 4.1: Add `Driver` to `afk/__init__.py` exports
+- [x] Task 5: Verify integration (AC: all)
+  - [x] 5.1: Run full test suite with `pytest tests/test_driver.py -v`
+  - [x] 5.2: Verify all acceptance criteria pass
+  - [x] 5.3: Run `ruff check afk/ tests/` to verify linting
 
 ## Dev Notes
 
@@ -106,8 +107,9 @@ from pathlib import Path
 
 
 class Driver:
-    def __init__(self, workspace: str):
+    def __init__(self, workspace: str, *, model: str | None = None):
         self.workspace = workspace
+        self.model = model
 
     def run(self, prompt: str, log_file: str) -> int:
         """Execute prompt against Claude Code CLI, return exit code."""
@@ -140,7 +142,10 @@ class Driver:
 
     def _build_command(self, prompt: str, log_file: str) -> list[str]:
         """Build script-wrapped claude command for current platform."""
-        claude_cmd = ["claude", "--print", prompt]
+        claude_cmd = ["claude", "--print"]
+        if self.model:
+            claude_cmd.extend(["--model", self.model])
+        claude_cmd.append(prompt)
 
         if sys.platform == "darwin":
             # macOS: script -q <logfile> <command...>
@@ -346,12 +351,30 @@ def git_repo(tmp_path: Path) -> Git:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Implemented `Driver` class in `afk/driver.py` with optional `model` parameter
+- Driver wraps Claude Code CLI using `script` command for terminal emulation
+- Platform-aware command building (macOS vs Linux syntax)
+- Signal handling via process groups (`start_new_session=True`, `os.killpg`)
+- Created comprehensive test suite with fake CLI fixtures (bash scripts)
+- Tests use subprocess isolation to properly test signal handling
+- All 28 tests pass (12 driver + 16 git)
+- Linting passes with ruff
+
 ### Change Log
 
+- 2025-12-10: Implemented Story 1.2 - Driver class with all acceptance criteria
+
 ### File List
+
+- afk/driver.py (new)
+- afk/__init__.py (modified - added Driver export)
+- tests/test_driver.py (new)
+- tests/fixtures/cli_success.py (new)
+- tests/fixtures/cli_failure.py (new)
+- tests/fixtures/cli_slow.py (new)
