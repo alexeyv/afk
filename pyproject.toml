@@ -10,3 +10,7 @@ dev = ["pytest>=9,<10", "ruff>=0.14,<1"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+# Terse output for LLM consumption: only failures + summary
+addopts = "-q --tb=short"

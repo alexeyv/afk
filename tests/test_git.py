@@ -136,6 +136,20 @@ class TestParseCommitMessage:
         outcome2, _ = git_repo.parse_commit_message(commit_hash2)
         assert outcome2 == "failure"
 
+    def test_outcome_captures_multi_word_value(self, git_repo: Git):
+        # LLMs may write multi-word outcomes - capture fully for error messages
+        msg = "feat: test\n\noutcome: needs review"
+        commit_hash = make_commit(git_repo, msg)
+        outcome, _ = git_repo.parse_commit_message(commit_hash)
+        assert outcome == "needs review"
+
+    def test_outcome_captures_fuzzy_llm_output(self, git_repo: Git):
+        # LLM might write something verbose - capture it all
+        msg = "feat: test\n\noutcome: I think this was successful but needs verification"
+        commit_hash = make_commit(git_repo, msg)
+        outcome, _ = git_repo.parse_commit_message(commit_hash)
+        assert outcome == "I think this was successful but needs verification"
+
 
 class TestCommitsBetween:
     def test_returns_commits_between_two_points(self, git_repo: Git):

@@ -1,8 +1,14 @@
-import os
-import signal
+import shlex
 import subprocess
 import sys
 from pathlib import Path
+
+
+if sys.platform == "win32":
+    raise RuntimeError("Windows is not supported")
+
+if subprocess.run(["which", "claude"], capture_output=True).returncode != 0:
+    raise RuntimeError("`claude` not found on PATH")
 
 
 class Driver:
@@ -24,14 +30,12 @@ class Driver:
             start_new_session=True,
         )
 
-        try:
-            for line in proc.stdout:
-                sys.stdout.buffer.write(line)
-                sys.stdout.buffer.flush()
-            proc.wait()
-        except KeyboardInterrupt:
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-            proc.wait()
+        # Stream output to terminal. The `script` command captures everything
+        # (including ^C on interrupt) to the log file for later inspection.
+        for line in proc.stdout:
+            sys.stdout.buffer.write(line)
+            sys.stdout.buffer.flush()
+        proc.wait()
 
         return proc.returncode
 
@@ -44,5 +48,5 @@ class Driver:
         if sys.platform == "darwin":
             return ["script", "-q", log_file] + claude_cmd
         else:
-            cmd_str = " ".join(claude_cmd)
+            cmd_str = " ".join(shlex.quote(arg) for arg in claude_cmd)
             return ["script", "-q", "-c", cmd_str, log_file]

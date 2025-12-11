@@ -103,3 +103,4 @@ The framework ships with sensible opinions. Applications override when they know
 - Don't add docstrings to obvious functions
 - Don't over-engineer—keep < 1000 LOC in framework core
 - Don't touch files outside the current task scope
+- **No absolute paths**—compute from `__file__`
