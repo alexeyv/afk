@@ -46,6 +46,8 @@ class Driver:
         try:
             # Stream output to terminal. The `script` command captures everything
             # (including ^C on interrupt) to the log file for later inspection.
+            # stdout=PIPE guarantees proc.stdout is not None
+            assert proc.stdout is not None
             for line in proc.stdout:
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()

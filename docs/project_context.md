@@ -21,6 +21,7 @@ afk is a **state machine executor**, not a loop orchestrator. The framework exec
 - **CLI Framework:** click
 - **Testing:** pytest
 - **Linting/Formatting:** ruff
+- **Type Checking:** pyright (strict mode)
 - **Package Format:** pyproject.toml
 
 ## Critical Rules
@@ -56,7 +57,9 @@ outcome: success
 - `PascalCase` for classes
 - No exception hierarchy—use `RuntimeError` for explicit errors
 - Never wrap library exceptions—let them propagate with full stack trace
+- Never dispatch on error type (no `except SomeError`)—catch-all or let it crash
 - Skip docstrings unless genuinely clarifying
+- No inline comments—put comments on the line above
 
 ### Project Structure
 
@@ -96,6 +99,19 @@ The framework ships with sensible opinions. Applications override when they know
 - Commit message schema: default success/failure, overridable
 - Success criteria: default one commit, overridable
 
+### Quality Gate (Before Commit)
+
+All three must pass before committing:
+
+```bash
+uv run ruff check afk/ tests/      # Linting
+uv run ruff format --check afk/ tests/  # Formatting
+uv run pyright --threads           # Type checking (strict)
+uv run pytest                      # Tests
+```
+
+Type errors are bugs. Fix them, don't suppress them.
+
 ### What NOT to Do
 
 - Don't create config files (YAML, TOML, etc.)—everything in Python code
@@ -104,3 +120,4 @@ The framework ships with sensible opinions. Applications override when they know
 - Don't over-engineer—keep < 1000 LOC in framework core
 - Don't touch files outside the current task scope
 - **No absolute paths**—compute from `__file__`
+- Don't suppress type errors with `# type: ignore`—fix the underlying issue

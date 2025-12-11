@@ -26,17 +26,21 @@ def execute_turn(
     head_before: Optional[str] = git.head_commit()
 
     # Execute the prompt via driver
-    driver.run(prompt, log_file)
+    exit_code = driver.run(prompt, log_file)
+    if exit_code != 0:
+        raise RuntimeError(f"Driver exited with code {exit_code}")
 
     # Capture HEAD after execution
-    head_after: Optional[str] = git.head_commit()
+    head_after = git.head_commit()
+    if head_after is None:
+        raise RuntimeError("No commits after execution (HEAD is unborn)")
 
     # Find commits made during execution
     commits = git.commits_between(head_before, head_after)
 
     # Happy path: exactly one commit
-    # Story 1.4 will handle zero/multiple commits
-    assert len(commits) == 1, f"Expected 1 commit, got {len(commits)}"
+    if len(commits) != 1:
+        raise RuntimeError(f"Expected 1 commit, got {len(commits)}")
     commit_hash = commits[0]
 
     # Parse outcome from commit message

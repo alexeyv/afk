@@ -133,3 +133,20 @@ class TestExecuteTurnEdgeCases:
 
         assert result.outcome is None
         assert "chore: update deps" in result.message
+
+    def test_raises_on_nonzero_exit_code(self, git_repo: Git, tmp_path: Path):
+        make_commit(git_repo, "initial")
+
+        def mock_run(prompt: str, log_file: str) -> int:
+            return 1  # Simulate failure
+
+        driver = Mock()
+        driver.run = mock_run
+
+        with pytest.raises(RuntimeError, match="Driver exited with code 1"):
+            execute_turn(
+                driver=driver,
+                git=git_repo,
+                prompt="fail",
+                log_file=str(tmp_path / "log.txt"),
+            )

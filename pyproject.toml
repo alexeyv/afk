@@ -5,7 +5,7 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=9,<10", "ruff>=0.14,<1"]
+dev = ["pytest>=9,<10", "ruff>=0.14,<1", "pyright>=1.1,<2"]
 
 [build-system]
 requires = ["hatchling"]
@@ -14,3 +14,10 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 # Terse output for LLM consumption: only failures + summary
 addopts = "-q --tb=short"
+
+[tool.pyright]
+# Strict mode catches more bugs (Optional vs required, etc.)
+typeCheckingMode = "strict"
+# Only check our code, not dependencies
+include = ["afk"]
+# Run with: uv run pyright --threads

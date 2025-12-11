@@ -84,6 +84,7 @@ class Git:
         """Return commits from since (exclusive) to until (inclusive), oldest first.
 
         If since is None, returns all commits from the repo's root commit.
+        Note: Uses --first-parent; merge branch history not traversed.
         """
         if since is None:
             since = self.root_commit()
