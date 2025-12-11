@@ -64,14 +64,39 @@ class Git:
 
         return (outcome, message)
 
-    def commits_between(self, before: Optional[str], after: str) -> list[str]:
-        if before is None:
-            output = self._run("log", "--reverse", "--format=%H", after, "--")
-        else:
+    def root_commit(self) -> str:
+        """Return the single root commit. Raises if repo has multiple roots."""
+        output = self._run("rev-list", "--max-parents=0", "HEAD")
+        roots = output.split("\n") if output else []
+
+        if len(roots) == 0:
+            raise RuntimeError("No root commit found")
+        if len(roots) > 1:
+            raise RuntimeError(
+                f"Repository has {len(roots)} root commits; only single-root repos are supported"
+            )
+
+        return roots[0]
+
+    def commits_between(self, since: str | None, until: str) -> list[str]:
+        """Return commits from since (exclusive) to until (inclusive), oldest first.
+
+        If since is None, returns all commits from the repo's root commit.
+        """
+        if since is None:
+            since = self.root_commit()
+            # Root commit is excluded by A..B syntax, so include it explicitly
             output = self._run(
                 "log", "--reverse", "--format=%H", "--ancestry-path", "--first-parent",
-                f"{before}..{after}", "--"
+                f"{since}..{until}", "--"
             )
+            commits = output.split("\n") if output else []
+            return [since] + commits
+
+        output = self._run(
+            "log", "--reverse", "--format=%H", "--ancestry-path", "--first-parent",
+            f"{since}..{until}", "--"
+        )
 
         if not output:
             return []

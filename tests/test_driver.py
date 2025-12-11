@@ -209,6 +209,8 @@ driver.run('hello world prompt', '{log_file}')
             env=env,
             capture_output=True,
         )
+        content = Path(log_file).read_text()
+        assert "hello world prompt" in content
 
     def test_model_flag_passed_to_cli(
         self, workspace: str, tmp_path: Path

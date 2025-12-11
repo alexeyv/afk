@@ -157,18 +157,67 @@ class TestCommitsBetween:
         commit_b = make_commit(git_repo, "commit B")
         commit_c = make_commit(git_repo, "commit C")
 
-        result = git_repo.commits_between(commit_a, commit_c)
+        result = git_repo.commits_between(since=commit_a, until=commit_c)
         assert result == [commit_b, commit_c]
 
-    def test_returns_all_commits_when_before_is_none(self, git_repo: Git):
+    def test_returns_all_commits_when_since_is_none(self, git_repo: Git):
         commit_a = make_commit(git_repo, "commit A")
         commit_b = make_commit(git_repo, "commit B")
         commit_c = make_commit(git_repo, "commit C")
 
-        result = git_repo.commits_between(None, commit_c)
+        result = git_repo.commits_between(since=None, until=commit_c)
         assert result == [commit_a, commit_b, commit_c]
 
     def test_returns_empty_list_when_no_commits_between(self, git_repo: Git):
         commit_a = make_commit(git_repo, "commit A")
-        result = git_repo.commits_between(commit_a, commit_a)
+        result = git_repo.commits_between(since=commit_a, until=commit_a)
         assert result == []
+
+
+class TestRootCommit:
+    def test_returns_single_root(self, git_repo: Git):
+        commit_a = make_commit(git_repo, "commit A")
+        make_commit(git_repo, "commit B")
+
+        assert git_repo.root_commit() == commit_a
+
+    def test_raises_on_multiple_roots(self, git_repo: Git, tmp_path: Path):
+        # Create first root
+        make_commit(git_repo, "root A")
+
+        # Create orphan branch with second root
+        subprocess.run(
+            ["git", "checkout", "--orphan", "orphan"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+        (tmp_path / "orphan.txt").write_text("orphan")
+        subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "root B"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+        # Merge unrelated histories to have both roots reachable from HEAD
+        subprocess.run(
+            ["git", "checkout", "master"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "main"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "merge", "--allow-unrelated-histories", "-m", "merge", "orphan"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+        with pytest.raises(RuntimeError, match=r"\d+ root commits"):
+            git_repo.root_commit()
