@@ -43,10 +43,10 @@ feat: implement feature X
 
 Description of changes.
 
-[success] completed as specified
+outcome: success
 ```
 
-- Footer contains `[outcome] comment` for machine parsing
+- Footer contains `outcome: value` for machine parsing (Conventional Commits compliant)
 - Default outcomes: `success`, `failure`
 - Applications can define additional outcomes
 

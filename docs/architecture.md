@@ -219,12 +219,12 @@ feat: implement user authentication
 Added login flow with session management.
 Refactored the auth module for clarity.
 
-[success] completed as specified
+outcome: success
 ```
 
 - Standard conventional commits format (type: subject, body)
-- Footer contains `[outcome] comment` for machine parsing
-- Framework parses footer for `[outcome]` pattern
+- Footer contains `outcome: value` for machine parsing (Conventional Commits compliant)
+- Framework parses footer for `outcome:` token
 - Default outcomes: `success`, `failure`
 - Applications can define additional outcomes
 

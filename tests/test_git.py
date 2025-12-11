@@ -68,16 +68,16 @@ class TestCommitMessage:
 
 class TestParseCommitMessage:
     def test_commit_with_success_outcome(self, git_repo: Git):
-        commit_hash = make_commit(git_repo, "feat: add feature\n\n[success] task done")
+        commit_hash = make_commit(git_repo, "feat: add feature\n\noutcome: success")
         outcome, message = git_repo.parse_commit_message(commit_hash)
         assert outcome == "success"
-        assert "[success]" in message
+        assert "outcome: success" in message
 
     def test_commit_with_failure_outcome(self, git_repo: Git):
-        commit_hash = make_commit(git_repo, "fix: attempt fix\n\n[failure] tests failed")
+        commit_hash = make_commit(git_repo, "fix: attempt fix\n\noutcome: failure")
         outcome, message = git_repo.parse_commit_message(commit_hash)
         assert outcome == "failure"
-        assert "[failure]" in message
+        assert "outcome: failure" in message
 
     def test_commit_without_outcome(self, git_repo: Git):
         commit_hash = make_commit(git_repo, "chore: update deps")
@@ -85,44 +85,56 @@ class TestParseCommitMessage:
         assert outcome is None
         assert "chore: update deps" in message
 
-    def test_outcome_in_footer_takes_precedence_over_body(self, git_repo: Git):
-        # [note] in body should be ignored, [success] in footer should be extracted
-        msg = "feat: add feature\n\n[note] this is body text\n\n[success] completed"
+    def test_outcome_in_footer_takes_precedence(self, git_repo: Git):
+        # Multiple outcome lines - last one wins (footer position)
+        msg = "feat: add feature\n\noutcome: partial\n\noutcome: success"
         commit_hash = make_commit(git_repo, msg)
         outcome, message = git_repo.parse_commit_message(commit_hash)
-        assert outcome == "success"  # Footer wins, not body
-        assert "[success]" in message
+        assert outcome == "success"  # Last one wins
+        assert "outcome: success" in message
 
     def test_outcome_allows_hyphenated_values(self, git_repo: Git):
-        msg = "feat: add feature\n\n[partial-success] completed"
+        msg = "feat: add feature\n\noutcome: partial-success"
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
         assert outcome == "partial-success"
 
-    def test_outcome_ignores_whitespace_only_marker(self, git_repo: Git):
-        msg = "feat: add feature\n\n[   ]"
+    def test_outcome_ignores_empty_value(self, git_repo: Git):
+        msg = "feat: add feature\n\noutcome: "
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
         assert outcome is None
 
-    def test_outcome_ignores_excessively_long_marker(self, git_repo: Git):
-        long_marker = "x" * 60
-        msg = f"feat: add feature\n\n[{long_marker}]"
+    def test_outcome_ignores_excessively_long_value(self, git_repo: Git):
+        long_value = "x" * 60
+        msg = f"feat: add feature\n\noutcome: {long_value}"
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
         assert outcome is None
 
     def test_outcome_with_special_characters(self, git_repo: Git):
-        # Outcomes can include hyphens, underscores, dots, colons
-        msg = "feat: add feature\n\n[partial-success] mostly done"
+        # Outcomes can include hyphens, underscores
+        msg = "feat: add feature\n\noutcome: partial-success"
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
         assert outcome == "partial-success"
 
-        msg2 = "feat: another\n\n[needs_review:urgent] please check"
+        msg2 = "feat: another\n\noutcome: needs_review"
         commit_hash2 = make_commit(git_repo, msg2)
         outcome2, _ = git_repo.parse_commit_message(commit_hash2)
-        assert outcome2 == "needs_review:urgent"
+        assert outcome2 == "needs_review"
+
+    def test_outcome_key_is_case_insensitive(self, git_repo: Git):
+        # LLMs capitalize unpredictably
+        msg1 = "feat: test\n\nOutcome: success"
+        commit_hash1 = make_commit(git_repo, msg1)
+        outcome1, _ = git_repo.parse_commit_message(commit_hash1)
+        assert outcome1 == "success"
+
+        msg2 = "feat: test\n\nOUTCOME: failure"
+        commit_hash2 = make_commit(git_repo, msg2)
+        outcome2, _ = git_repo.parse_commit_message(commit_hash2)
+        assert outcome2 == "failure"
 
 
 class TestCommitsBetween:

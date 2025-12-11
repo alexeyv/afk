@@ -66,7 +66,7 @@ This document provides the complete epic and story breakdown for afk, decomposin
 - No starter template - Project is minimal Python CLI; starts from scratch
 - `script` command wrapper - Uses `script` to make Claude Code think it's in a terminal
 - Post-commit hook termination - Hook kills agent on graceful completion
-- Conventional commits with outcome footer - `[success]` or `[failure]` in commit message footer
+- Conventional commits with outcome footer - `outcome: success` or `outcome: failure` in commit message footer
 - Exception vs Outcome distinction - Zero commits, multiple commits, timeout, process died are exceptions (halt machine), not outcomes
 - Smart defaults philosophy - Framework has opinions, applications can override
 - Flat structure - One file per domain entity: driver.py, machine.py, session.py, turn.py, transition.py, prompt.py, revision.py, commit.py, git.py
@@ -150,12 +150,12 @@ So that the framework can detect what the agent produced.
 **Then** I receive the current HEAD commit hash
 **And** returns None if no commits exist
 
-**Given** a commit with message following conventional format with `[outcome]` footer
+**Given** a commit with message following conventional format with `outcome:` footer
 **When** I call `git.parse_commit_message(hash)`
 **Then** I receive a tuple of (outcome, message) where outcome is the parsed value (e.g., "success")
 **And** message is the full commit message text
 
-**Given** a commit without an `[outcome]` footer
+**Given** a commit without an `outcome:` footer
 **When** I call `git.parse_commit_message(hash)`
 **Then** I receive a tuple of (None, message)
 **And** message is the full commit message text
@@ -202,14 +202,14 @@ So that I know what the agent produced.
 **Given** a prompt execution that results in exactly one commit
 **When** the driver completes
 **Then** I receive a `TurnResult` with outcome, message, and commit_hash
-**And** the outcome is extracted from the `[outcome]` footer
+**And** the outcome is extracted from the `outcome:` footer
 
 **Given** a prompt execution completes
 **When** I check for commits made during execution
 **Then** the framework compares HEAD before and after execution
 **And** identifies all commits made in that window
 
-**Given** the agent made a commit with `[success] task completed`
+**Given** the agent made a commit with footer `outcome: success`
 **When** result extraction runs
 **Then** `TurnResult.outcome` equals "success"
 **And** `TurnResult.message` contains the full commit message
@@ -687,7 +687,7 @@ So that I can run my first experiment without writing any code.
 
 **Given** the bundled prompts
 **When** I examine them
-**Then** they include outcome signaling instructions (commit with `[success]` or `[failure]`)
+**Then** they include outcome signaling instructions (commit with `outcome: success` or `outcome: failure` footer)
 **And** they include the commit message schema guidance
 
 ### Story 6.3: Workspace Initialization
