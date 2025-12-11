@@ -29,6 +29,7 @@ afk is a **state machine executor**, not a loop orchestrator. The framework exec
 ### Version Control
 
 - **Agents never push.** Human reviews and pushes.
+- **Always use `git mv` for renames and moves.** Never use plain `mv` for version-controlled files.
 - **Before any commit, run quality checks** (see "Linting and Code Quality Checks" below). All must pass.
 - Planning workflows (PRD, architecture, epics): commit at workflow completion
 - Dev workflow (dev-story): commit after each step
