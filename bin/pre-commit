@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+echo "Running quality checks..."
+
+echo "  ruff check..."
+uv run ruff check afk/ tests/
+
+echo "  ruff format..."
+uv run ruff format --check afk/ tests/
+
+echo "  pyright..."
+uv run pyright afk/
+
+echo "  pytest..."
+uv run pytest tests/ -q
+
+echo "All checks passed."
