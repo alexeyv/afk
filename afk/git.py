@@ -51,7 +51,9 @@ class Git:
         # Case-insensitive - LLMs capitalize unpredictably
         # Capture full value to end of line so we can show exactly what LLM wrote
         # Take the last match as it's most likely in the footer
-        matches = re.findall(r"^outcome:\s*(.+)$", message, re.MULTILINE | re.IGNORECASE)
+        matches = re.findall(
+            r"^outcome:\s*(.+)$", message, re.MULTILINE | re.IGNORECASE
+        )
 
         outcome: Optional[str] = None
         for raw in matches:
@@ -87,15 +89,25 @@ class Git:
             since = self.root_commit()
             # Root commit is excluded by A..B syntax, so include it explicitly
             output = self._run(
-                "log", "--reverse", "--format=%H", "--ancestry-path", "--first-parent",
-                f"{since}..{until}", "--"
+                "log",
+                "--reverse",
+                "--format=%H",
+                "--ancestry-path",
+                "--first-parent",
+                f"{since}..{until}",
+                "--",
             )
             commits = output.split("\n") if output else []
             return [since] + commits
 
         output = self._run(
-            "log", "--reverse", "--format=%H", "--ancestry-path", "--first-parent",
-            f"{since}..{until}", "--"
+            "log",
+            "--reverse",
+            "--format=%H",
+            "--ancestry-path",
+            "--first-parent",
+            f"{since}..{until}",
+            "--",
         )
 
         if not output:

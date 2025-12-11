@@ -145,7 +145,9 @@ class TestParseCommitMessage:
 
     def test_outcome_captures_fuzzy_llm_output(self, git_repo: Git):
         # LLM might write something verbose - capture it all
-        msg = "feat: test\n\noutcome: I think this was successful but needs verification"
+        msg = (
+            "feat: test\n\noutcome: I think this was successful but needs verification"
+        )
         commit_hash = make_commit(git_repo, msg)
         outcome, _ = git_repo.parse_commit_message(commit_hash)
         assert outcome == "I think this was successful but needs verification"
@@ -193,7 +195,9 @@ class TestRootCommit:
             capture_output=True,
         )
         (tmp_path / "orphan.txt").write_text("orphan")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=tmp_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "root B"],
             cwd=tmp_path,

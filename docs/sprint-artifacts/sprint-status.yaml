@@ -45,7 +45,7 @@ development_status:
   epic-1: in-progress
   1-1-git-operations-foundation: done
   1-2-driver-execute-prompt-via-script-wrapper: review
-  1-3-commit-detection-and-result-extraction: backlog
+  1-3-commit-detection-and-result-extraction: review
   1-4-exception-handling-for-prompt-execution: backlog
   epic-1-retrospective: optional
 

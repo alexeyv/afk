@@ -19,7 +19,9 @@ def workspace(tmp_path: Path) -> str:
     return str(ws)
 
 
-def fake_claude(tmp_path: Path, *, exit_code: int = 0, output: str = "", delay: float = 0) -> Path:
+def fake_claude(
+    tmp_path: Path, *, exit_code: int = 0, output: str = "", delay: float = 0
+) -> Path:
     """Create a fake claude CLI script. Returns path to bin directory for PATH injection."""
     fake_bin = tmp_path / f"bin_{exit_code}_{delay}"
     fake_bin.mkdir(exist_ok=True)
@@ -28,7 +30,7 @@ def fake_claude(tmp_path: Path, *, exit_code: int = 0, output: str = "", delay: 
     delay_cmd = f"sleep {delay}" if delay else ""
     script.write_text(f"""#!/bin/bash
 echo "Claude received: $@"
-{f'echo "{output}"' if output else ''}
+{f'echo "{output}"' if output else ""}
 {delay_cmd}
 exit {exit_code}
 """)
@@ -90,7 +92,10 @@ class TestDriverBuildCommand:
         assert cmd[0] == "script"
         assert cmd[1] == "-q"
         assert cmd[2] == "-c"
-        assert "claude --print 'my prompt'" in cmd[3] or "claude --print my prompt" in cmd[3]
+        assert (
+            "claude --print 'my prompt'" in cmd[3]
+            or "claude --print my prompt" in cmd[3]
+        )
         assert cmd[4] == "/path/to/log.txt"
 
     @pytest.mark.skipif(sys.platform == "darwin", reason="Linux-specific test")
@@ -106,9 +111,7 @@ class TestDriverBuildCommand:
 
 
 class TestDriverRunWithFakeCLI:
-    def test_executes_and_returns_exit_code_zero(
-        self, workspace: str, tmp_path: Path
-    ):
+    def test_executes_and_returns_exit_code_zero(self, workspace: str, tmp_path: Path):
         cli = fake_claude(tmp_path)
         log_file = str(tmp_path / "test.log")
 
@@ -134,10 +137,10 @@ sys.exit(exit_code)
         )
         assert result.returncode == 0
 
-    def test_returns_nonzero_exit_code_on_failure(
-        self, workspace: str, tmp_path: Path
-    ):
-        cli = fake_claude(tmp_path, exit_code=1, output="Claude error: something went wrong")
+    def test_returns_nonzero_exit_code_on_failure(self, workspace: str, tmp_path: Path):
+        cli = fake_claude(
+            tmp_path, exit_code=1, output="Claude error: something went wrong"
+        )
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -185,9 +188,7 @@ driver.run('test prompt', '{log_file}')
         )
         assert Path(log_file).exists()
 
-    def test_log_file_contains_output(
-        self, workspace: str, tmp_path: Path
-    ):
+    def test_log_file_contains_output(self, workspace: str, tmp_path: Path):
         cli = fake_claude(tmp_path)
         log_file = str(tmp_path / "test.log")
 
@@ -212,9 +213,7 @@ driver.run('hello world prompt', '{log_file}')
         content = Path(log_file).read_text()
         assert "hello world prompt" in content
 
-    def test_model_flag_passed_to_cli(
-        self, workspace: str, tmp_path: Path
-    ):
+    def test_model_flag_passed_to_cli(self, workspace: str, tmp_path: Path):
         cli = fake_claude(tmp_path)
         log_file = str(tmp_path / "test.log")
 
@@ -242,10 +241,10 @@ driver.run('test prompt', '{log_file}')
 
 
 class TestDriverSignalHandling:
-    @pytest.mark.skipif(sys.platform == "win32", reason="SIGINT not available on Windows")
-    def test_sigint_terminates_process(
-        self, workspace: str, tmp_path: Path
-    ):
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="SIGINT not available on Windows"
+    )
+    def test_sigint_terminates_process(self, workspace: str, tmp_path: Path):
         cli = fake_claude(tmp_path, delay=5)
         log_file = str(tmp_path / "test.log")
 
@@ -277,10 +276,10 @@ driver.run('test prompt', '{log_file}')
         # Process should have terminated
         assert proc.poll() is not None
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="SIGINT not available on Windows")
-    def test_partial_log_preserved_on_interrupt(
-        self, workspace: str, tmp_path: Path
-    ):
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="SIGINT not available on Windows"
+    )
+    def test_partial_log_preserved_on_interrupt(self, workspace: str, tmp_path: Path):
         cli = fake_claude(tmp_path, delay=5)
         log_file = str(tmp_path / "test.log")
 
