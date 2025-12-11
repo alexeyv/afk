@@ -121,3 +121,4 @@ Type errors are bugs. Fix them, don't suppress them.
 - Don't touch files outside the current task scope
 - **No absolute paths**—compute from `__file__`
 - Don't suppress type errors with `# type: ignore`—fix the underlying issue
+- **No flaky tests. No "unrelated" failing tests.** Fix them. Deleting requires human approval.

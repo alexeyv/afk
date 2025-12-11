@@ -19,8 +19,20 @@ def _check_environment() -> None:
     if sys.platform == "win32":
         raise RuntimeError("Windows is not supported")
 
-    if subprocess.run(["which", "claude"], capture_output=True).returncode != 0:
-        raise RuntimeError("`claude` not found on PATH")
+    result = subprocess.run(
+        ["claude", "--version"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"""Claude Code CLI is not available.
+
+`claude --version` failed with exit code {result.returncode}.
+
+Ensure Claude Code is installed and working. Visit:
+https://claude.ai/download"""
+        )
 
     _env_checked = True
 
