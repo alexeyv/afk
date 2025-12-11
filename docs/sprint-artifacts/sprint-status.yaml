@@ -1,4 +1,4 @@
-# generated: 2025-12-09
+# generated: 2025-12-11
 # project: afk
 # project_key: afk
 # tracking_system: file-system
@@ -34,7 +34,7 @@
 # - SM typically drafts next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2025-12-09
+generated: 2025-12-11
 project: afk
 project_key: afk
 tracking_system: file-system
@@ -42,16 +42,16 @@ story_location: docs/sprint-artifacts
 
 development_status:
   # Epic 1: Core Prompt Execution
-  epic-1: in-progress
+  epic-1: done
   1-1-git-operations-foundation: done
-  1-2-driver-execute-prompt-via-script-wrapper: review
-  1-3-commit-detection-and-result-extraction: review
-  1-4-exception-handling-for-prompt-execution: review
-  epic-1-retrospective: optional
+  1-2-driver-execute-prompt-via-script-wrapper: done
+  1-3-commit-detection-and-result-extraction: done
+  1-4-exception-handling-for-prompt-execution: done
+  epic-1-retrospective: done
 
   # Epic 2: Turn Tracking & Session Management
   epic-2: in-progress
-  2-1-turn-data-structure: ready-for-dev
+  2-1-turn-data-structure: in-progress
   2-2-session-tracking: backlog
   2-3-turn-based-logging: backlog
   2-4-turn-execution-integration: backlog
