@@ -121,6 +121,10 @@ uv run pytest                      # Tests
 
 Type errors are bugs. Fix them, don't suppress them.
 
+### Testing Philosophy
+
+**No mocks.** Use fake CLI scripts in `tests/fixtures/` to simulate Claude. Real code runs; only the external process is faked.
+
 ### What NOT to Do
 
 - Don't create config files (YAML, TOML, etc.)—everything in Python code

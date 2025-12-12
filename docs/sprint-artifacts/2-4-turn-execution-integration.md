@@ -17,7 +17,7 @@ so that turn tracking is automatic during prompt execution.
    **And** the `Turn` is added to the session
    **And** the `Turn` is returned
 
-2. **Given** a turn execution that raises an exception
+2. **Given** a turn execution where `execute_turn()` raises (no commit, multiple commits, signal, non-zero exit)
    **When** the exception occurs
    **Then** a `Turn` instance is still created
    **And** the `Turn`'s result is None
@@ -25,6 +25,16 @@ so that turn tracking is automatic during prompt execution.
    **And** the exception propagates after recording
 
 ## Tasks / Subtasks
+
+- [ ] Task 0: Create TransitionType value class (AC: #1, #2)
+  - [ ] 0.1: Create `afk/transition_type.py` module
+  - [ ] 0.2: Create `TransitionType` class with constructor validating pattern `^[a-z][a-z0-9_.-]*$`
+  - [ ] 0.3: Make it a proper Python citizen: `__str__`, `__repr__`, `__eq__`, `__hash__`
+  - [ ] 0.4: Update `Turn` to use `TransitionType` instead of `str`, remove `ALLOWED_TRANSITION_TYPES`
+  - [ ] 0.5: Update `TurnLog` to use `TransitionType`, remove `_TRANSITION_TYPE_PATTERN`
+  - [ ] 0.6: Export `TransitionType` from `afk/__init__.py`
+  - [ ] 0.7: Update existing Turn and TurnLog tests
+  - [ ] 0.8: Write unit tests for TransitionType (valid/invalid inputs, equality, hash)
 
 - [ ] Task 1: Extend Session with root_dir and log_dir (AC: #1, #2)
   - [ ] 1.1: Add `root_dir: Path` parameter to `Session.__init__()`
@@ -52,23 +62,70 @@ so that turn tracking is automatic during prompt execution.
   - [ ] 4.3: Add Turn to session before re-raising
   - [ ] 4.4: Re-raise original exception after recording turn
 
-- [ ] Task 5: Write unit tests for execute_turn (AC: #1, #2)
-  - [ ] 5.1: Test successful execution creates Turn with correct turn_number
-  - [ ] 5.2: Test Turn has correct transition_type
-  - [ ] 5.3: Test Turn has correct log_file path (follows TurnLog pattern)
-  - [ ] 5.4: Test Turn is added to session
-  - [ ] 5.5: Test sequential calls increment turn_number
-  - [ ] 5.6: Test exception still creates Turn with result=None
-  - [ ] 5.7: Test Turn is added to session even on exception
-  - [ ] 5.8: Test original exception is re-raised
+- [ ] Task 5: Create fake CLI helpers for execute_turn tests (AC: #1, #2)
+  - [ ] 5.1: Create `fake_claude_with_commit()` helper that writes a temp script making a commit with `outcome: success`
+  - [ ] 5.2: Create `fake_claude_no_commit()` helper that writes a temp script exiting without commit
+  - [ ] 5.3: Follow existing pattern in `test_driver.py:fake_claude()` - write temp bash scripts, return bin path for PATH injection
 
-- [ ] Task 6: Run quality gate (all ACs)
-  - [ ] 6.1: Run `uv run ruff check afk/ tests/`
-  - [ ] 6.2: Run `uv run ruff format --check afk/ tests/`
-  - [ ] 6.3: Run `uv run pyright --threads`
-  - [ ] 6.4: Run `uv run pytest`
+- [ ] Task 6: Write tests for execute_turn (AC: #1, #2)
+  - [ ] 6.1: Test successful execution creates Turn with correct turn_number
+  - [ ] 6.2: Test Turn has correct transition_type
+  - [ ] 6.3: Test Turn has correct log_file path (follows TurnLog pattern)
+  - [ ] 6.4: Test Turn is added to session
+  - [ ] 6.5: Test sequential calls increment turn_number
+  - [ ] 6.6: Test exception still creates Turn with result=None
+  - [ ] 6.7: Test Turn is added to session even on exception
+  - [ ] 6.8: Test original exception is re-raised
+
+- [ ] Task 7: Run quality gate (all ACs)
+  - [ ] 7.1: Run `uv run ruff check afk/ tests/`
+  - [ ] 7.2: Run `uv run ruff format --check afk/ tests/`
+  - [ ] 7.3: Run `uv run pyright --threads`
+  - [ ] 7.4: Run `uv run pytest`
 
 ## Dev Notes
+
+### TransitionType Value Class
+
+Per `project_context.md`: "Domain classes must be good Python citizens."
+
+TransitionType validates format once at construction using pattern `^[a-z][a-z0-9_.-]*$`. Implements:
+- `__str__`: Returns the raw value
+- `__repr__`: Returns `TransitionType('value')`
+- `__eq__`: Value equality with other TransitionType
+- `__hash__`: Hashable for use in sets/dicts
+
+This replaces the hardcoded `ALLOWED_TRANSITION_TYPES` in Turn (which incorrectly restricted to only "init" and "coding") and `_TRANSITION_TYPE_PATTERN` in TurnLog with a single source of truth.
+
+**IMPORTANT:** "init" and "coding" are examples, not an exhaustive list. Any lowercase identifier is valid.
+
+### Breaking API Change: Session Constructor
+
+Session changes from `Session()` to `Session(root_dir, driver)`. This breaks:
+
+- `tests/test_session.py` - All existing tests use `Session()` with no args
+- Any future code that constructs Session directly
+
+**Migration:**
+```python
+# Before
+session = Session()
+
+# After
+git = Git(repo_path)
+driver = Driver(git)
+session = Session(root_dir, driver)
+```
+
+For tests that don't need execute_turn, create minimal fixtures or use a test helper.
+
+### Exception Handling Philosophy
+
+AC #2 covers exceptions from prompt execution (no commit, multiple commits, signal termination, non-zero exit) - these record a Turn with `result=None` before re-raising.
+
+Validation errors (invalid TransitionType, turn_number overflow, bad log_file path) are programmer errors. These propagate immediately and abort the experiment. No Turn is recorded. This is correct behavior - fail fast on bad inputs.
+
+**Note:** `Turn.MAX_TURN_NUMBER` is 100,000. Exceeding this raises `ValueError`. In practice, no session will ever reach this limit.
 
 ### Architecture Compliance
 
@@ -119,6 +176,7 @@ from pathlib import Path
 
 from afk.driver import Driver
 from afk.executor import execute_turn
+from afk.transition_type import TransitionType
 from afk.turn import Turn
 from afk.turn_log import TurnLog
 
@@ -133,7 +191,7 @@ class Session:
     def log_dir(self) -> Path:
         return self._root_dir / "logs"
 
-    def execute_turn(self, prompt: str, transition_type: str) -> Turn:
+    def execute_turn(self, prompt: str, transition_type: TransitionType) -> Turn:
         """Execute a turn and record it in the session.
 
         Creates the next sequential turn, executes via Driver, and adds
@@ -173,54 +231,60 @@ class Session:
 
 ### Testing Strategy
 
-Tests need to mock the Driver and `execute_turn` function to avoid real CLI execution:
+Per `project_context.md`: **No mocks.** Use fake CLI scripts to simulate Claude.
+
+Follow the existing pattern in `test_driver.py:fake_claude()`:
+1. Write a temp bash script in `tmp_path` that acts as `claude`
+2. Script makes a git commit with `outcome: success` footer
+3. Return the bin directory path, inject into PATH
+4. Real code runs; only the external process is faked
 
 ```python
-# tests/test_session.py - new tests for execute_turn
-from unittest.mock import MagicMock, patch
-from datetime import datetime, timezone
+# tests/test_session.py - execute_turn tests
+import os
+import subprocess
 from pathlib import Path
 
 from afk.driver import Driver
+from afk.git import Git
 from afk.session import Session
-from afk.turn_result import TurnResult
+
+
+def fake_claude_with_commit(tmp_path: Path, repo_path: Path) -> Path:
+    """Create fake claude that makes a commit. Returns bin dir for PATH."""
+    fake_bin = tmp_path / "fake_bin"
+    fake_bin.mkdir(exist_ok=True)
+    script = fake_bin / "claude"
+    script.write_text(f"""#!/bin/bash
+cd {repo_path}
+git commit --allow-empty -m "feat: test commit
+
+outcome: success"
+""")
+    script.chmod(0o755)
+    return fake_bin
 
 
 class TestSessionExecuteTurn:
     def test_creates_turn_with_correct_number(self, tmp_path):
-        driver = MagicMock(spec=Driver)
-        session = Session(tmp_path, driver)
+        # Set up git repo
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init"], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "--allow-empty", "-m", "initial"], cwd=repo, check=True)
 
-        with patch("afk.session.execute_turn") as mock_exec:
-            mock_exec.return_value = TurnResult("success", "msg", "abc123")
-            turn = session.execute_turn("prompt", "init")
+        # Inject fake claude into PATH
+        fake_bin = fake_claude_with_commit(tmp_path, repo)
+        env = os.environ.copy()
+        env["PATH"] = f"{fake_bin}:{env['PATH']}"
+
+        git = Git(repo)
+        driver = Driver(git)
+        session = Session(repo, driver)
+
+        turn = session.execute_turn("prompt", "init")
 
         assert turn.turn_number == 1
-
-    def test_sequential_turns_increment_number(self, tmp_path):
-        driver = MagicMock(spec=Driver)
-        session = Session(tmp_path, driver)
-
-        with patch("afk.session.execute_turn") as mock_exec:
-            mock_exec.return_value = TurnResult("success", "msg", "abc123")
-            turn1 = session.execute_turn("p1", "init")
-            turn2 = session.execute_turn("p2", "coding")
-
-        assert turn1.turn_number == 1
-        assert turn2.turn_number == 2
-
-    def test_exception_still_records_turn(self, tmp_path):
-        driver = MagicMock(spec=Driver)
-        session = Session(tmp_path, driver)
-
-        with patch("afk.session.execute_turn") as mock_exec:
-            mock_exec.side_effect = RuntimeError("No commit")
-
-            with pytest.raises(RuntimeError, match="No commit"):
-                session.execute_turn("prompt", "init")
-
-        assert len(session) == 1
-        assert session[1].result is None
 ```
 
 ### Import Considerations
@@ -292,15 +356,19 @@ feat: add Session.execute_turn() for turn execution integration (Story 2.4)
 
 ### Project Structure After This Story
 
-No new files - only modifications:
 ```
 afk/
+├── transition_type.py   # NEW: TransitionType value class
 ├── session.py           # MODIFIED: Add root_dir, driver, execute_turn()
-└── ...                  # Other files unchanged
+├── turn.py              # MODIFIED: Use TransitionType instead of str
+├── turn_log.py          # MODIFIED: Use TransitionType instead of str
+└── __init__.py          # MODIFIED: Export TransitionType
 
 tests/
-├── test_session.py      # MODIFIED: Add tests for execute_turn()
-└── ...                  # Update existing tests for new constructor
+├── test_transition_type.py  # NEW: TransitionType tests
+├── test_session.py      # MODIFIED: Add execute_turn tests, update constructor calls
+├── test_turn.py         # MODIFIED: Update for TransitionType
+└── test_turn_log.py     # MODIFIED: Update for TransitionType
 ```
 
 ### Dependencies
