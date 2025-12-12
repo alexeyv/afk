@@ -1,6 +1,6 @@
 # Story 2.2: Session Tracking
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,36 +30,36 @@ so that I can review what happened across the entire run.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `Session` class in `afk/session.py` (AC: #1, #2, #3, #4)
-  - [ ] 1.1: Create new file `afk/session.py`
-  - [ ] 1.2: Create `Session` class (NOT a frozen dataclass - needs to be mutable to add turns)
-  - [ ] 1.3: Add private `_turns: list[Turn]` storage
-  - [ ] 1.4: Add `add_turn(turn: Turn) -> None` method that appends turn to list
-  - [ ] 1.5: Add validation in `add_turn` that turn_number matches expected next number
-  - [ ] 1.6: Add `turn(n: int) -> Turn` method that returns Turn by turn_number
-  - [ ] 1.7: Add `KeyError` raise when turn number not found
-  - [ ] 1.8: Add `__iter__` method for chronological iteration
-  - [ ] 1.9: Add `turns` property returning `tuple[Turn, ...]` (immutable view)
+- [x] Task 1: Create `Session` class in `afk/session.py` (AC: #1, #2, #3, #4)
+  - [x] 1.1: Create new file `afk/session.py`
+  - [x] 1.2: Create `Session` class (NOT a frozen dataclass - needs to be mutable to add turns)
+  - [x] 1.3: Add private `_turns: list[Turn]` storage
+  - [x] 1.4: Add `add_turn(turn: Turn) -> None` method that appends turn to list
+  - [x] 1.5: Add validation in `add_turn` that turn_number matches expected next number
+  - [x] 1.6: Add `turn(n: int) -> Turn` method that returns Turn by turn_number
+  - [x] 1.7: Add `KeyError` raise when turn number not found
+  - [x] 1.8: Add `__iter__` method for chronological iteration
+  - [x] 1.9: Add `turns` property returning `tuple[Turn, ...]` (immutable view)
 
-- [ ] Task 2: Write unit tests for `Session` (AC: #1, #2, #3, #4)
-  - [ ] 2.1: Create `tests/test_session.py`
-  - [ ] 2.2: Test `Session` can be instantiated empty
-  - [ ] 2.3: Test `add_turn` adds turn to session
-  - [ ] 2.4: Test turns are stored in order of addition
-  - [ ] 2.5: Test `turn(n)` returns correct turn by turn_number
-  - [ ] 2.6: Test `turn(n)` raises KeyError for non-existent turn
-  - [ ] 2.7: Test iteration yields turns in chronological order
-  - [ ] 2.8: Test `turns` property returns tuple (immutable)
-  - [ ] 2.9: Test validation rejects turn with wrong turn_number
+- [x] Task 2: Write unit tests for `Session` (AC: #1, #2, #3, #4)
+  - [x] 2.1: Create `tests/test_session.py`
+  - [x] 2.2: Test `Session` can be instantiated empty
+  - [x] 2.3: Test `add_turn` adds turn to session
+  - [x] 2.4: Test turns are stored in order of addition
+  - [x] 2.5: Test `turn(n)` returns correct turn by turn_number
+  - [x] 2.6: Test `turn(n)` raises KeyError for non-existent turn
+  - [x] 2.7: Test iteration yields turns in chronological order
+  - [x] 2.8: Test `turns` property returns tuple (immutable)
+  - [x] 2.9: Test validation rejects turn with wrong turn_number
 
-- [ ] Task 3: Export `Session` from package (AC: all)
-  - [ ] 3.1: Add `Session` to `afk/__init__.py` exports
+- [x] Task 3: Export `Session` from package (AC: all)
+  - [x] 3.1: Add `Session` to `afk/__init__.py` exports
 
-- [ ] Task 4: Run quality gate (all ACs)
-  - [ ] 4.1: Run `uv run ruff check afk/ tests/`
-  - [ ] 4.2: Run `uv run ruff format --check afk/ tests/`
-  - [ ] 4.3: Run `uv run pyright --threads`
-  - [ ] 4.4: Run `uv run pytest`
+- [x] Task 4: Run quality gate (all ACs)
+  - [x] 4.1: Run `uv run ruff check afk/ tests/`
+  - [x] 4.2: Run `uv run ruff format --check afk/ tests/`
+  - [x] 4.3: Run `uv run pyright --threads`
+  - [x] 4.4: Run `uv run pytest`
 
 ## Dev Notes
 
@@ -311,10 +311,30 @@ This is the second story in Epic 2 (Turn Tracking & Session Management):
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
+N/A - no debug issues encountered
+
 ### Completion Notes List
 
+- ✅ Implemented `Session` class as mutable container for `Turn` instances
+- ✅ `add_turn()` validates sequential turn numbers (starting from 1)
+- ✅ `turn(n)` returns Turn by number or raises `KeyError`
+- ✅ `__iter__` provides chronological iteration
+- ✅ `turns` property returns immutable `tuple[Turn, ...]`
+- ✅ All 9 unit tests pass covering all 4 acceptance criteria
+- ✅ Full test suite: 88 passed, 3 skipped
+- ✅ Quality gate: ruff check, ruff format, pyright all pass
+
 ### File List
+
+**New Files:**
+- `afk/session.py` - Session class implementation
+- `tests/test_session.py` - Unit tests for Session (9 tests)
+
+**Modified Files:**
+- `afk/__init__.py` - Added Session to exports
+- `docs/sprint-artifacts/sprint-status.yaml` - Status updates
+- `docs/sprint-artifacts/2-2-session-tracking.md` - Story completion
