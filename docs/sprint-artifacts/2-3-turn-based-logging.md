@@ -13,46 +13,35 @@ so that I can easily find logs for specific turns.
 1. **Given** turn number 3 with transition type "coding"
    **When** generating the log file name
    **Then** the name follows pattern `turn-003-coding.log`
-   **And** the file is created in the session's log directory
 
-2. **Given** a session log directory
-   **When** multiple turns execute
-   **Then** each turn has its own log file
-   **And** log files are never overwritten
-
-3. **Given** a turn's log file path
-   **When** I want to review that turn
-   **Then** the path is accessible via `turn.log_file`
+2. **Given** different turn numbers or transition types
+   **When** generating log file names
+   **Then** each unique (turn_number, transition_type) combination produces a unique filename
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create log file naming function (AC: #1)
-  - [ ] 1.1: Create `format_log_filename(turn_number: int, transition_type: str) -> str` function
-  - [ ] 1.2: Format turn number with zero-padding to 3 digits (e.g., 003)
-  - [ ] 1.3: Return pattern `turn-{NNN}-{type}.log`
-  - [ ] 1.4: Place function in appropriate module (see Design Decision below)
+- [ ] Task 1: Create TurnLog class (AC: #1, #2)
+  - [ ] 1.1: Create `afk/turn_log.py` module
+  - [ ] 1.2: Create `TurnLog` class with constructor `(turn_number, transition_type, log_dir)`
+  - [ ] 1.3: Add `filename` property returning `turn-{NNN}-{type}.log` pattern
+  - [ ] 1.4: Add `path` property returning absolute Path
 
-- [ ] Task 2: Create log path generation function (AC: #1, #2)
-  - [ ] 2.1: Create `log_path_for_turn(log_dir: Path, turn_number: int, transition_type: str) -> Path`
-  - [ ] 2.2: Combine log_dir with formatted filename
-  - [ ] 2.3: Return absolute Path object
+- [ ] Task 2: Write unit tests for TurnLog (AC: #1, #2)
+  - [ ] 2.1: Create `tests/test_turn_log.py`
+  - [ ] 2.2: Test `filename` property returns correct pattern
+  - [ ] 2.3: Test zero-padding works correctly (1 -> "001", 10 -> "010", 100 -> "100")
+  - [ ] 2.4: Test `path` property combines directory and filename correctly
+  - [ ] 2.5: Test `path` is absolute
+  - [ ] 2.6: Test different transition types produce different filenames
 
-- [ ] Task 3: Write unit tests for log naming (AC: #1, #2, #3)
-  - [ ] 3.1: Create `tests/test_log_naming.py`
-  - [ ] 3.2: Test `format_log_filename` returns correct pattern for various inputs
-  - [ ] 3.3: Test zero-padding works correctly (1 -> "001", 10 -> "010", 100 -> "100")
-  - [ ] 3.4: Test `log_path_for_turn` combines directory and filename correctly
-  - [ ] 3.5: Test log path is absolute when given absolute log_dir
-  - [ ] 3.6: Test different transition types produce different filenames
+- [ ] Task 3: Export TurnLog from package (AC: all)
+  - [ ] 3.1: Add `TurnLog` to `afk/__init__.py`
 
-- [ ] Task 4: Export functions from package (AC: all)
-  - [ ] 4.1: Add exports to `afk/__init__.py`
-
-- [ ] Task 5: Run quality gate (all ACs)
-  - [ ] 5.1: Run `uv run ruff check afk/ tests/`
-  - [ ] 5.2: Run `uv run ruff format --check afk/ tests/`
-  - [ ] 5.3: Run `uv run pyright --threads`
-  - [ ] 5.4: Run `uv run pytest`
+- [ ] Task 4: Run quality gate (all ACs)
+  - [ ] 4.1: Run `uv run ruff check afk/ tests/`
+  - [ ] 4.2: Run `uv run ruff format --check afk/ tests/`
+  - [ ] 4.3: Run `uv run pyright --threads`
+  - [ ] 4.4: Run `uv run pytest`
 
 ## Dev Notes
 
@@ -67,40 +56,43 @@ From `docs/architecture.md#Cross-Cutting Concerns`:
 From `docs/architecture.md#Project Structure`:
 > "Flat until it hurts. One file per domain entity."
 
-### Design Decision: Function Location
+### Design Decision: Class vs Functions
 
-**Option A: New `afk/logging.py` module** - Creates a dedicated module for log-related utilities.
+**Option A: `TurnLog` class** - One instance per turn, properties for filename/path.
 
-**Option B: Add to existing `afk/turn.py`** - Keep log naming close to Turn since they're tightly coupled.
+**Option B: Pure functions** - `format_log_filename()` and `log_path_for_turn()` as standalone functions.
 
-**Recommendation: Option A (new module)**
-- Log naming is a utility function, not a Turn method
+**Recommendation: Option A (class)**
+- One instance per turn mirrors domain model
+- Properties (`filename`, `path`) are natural for an object
 - Keeps Turn as a pure data class (frozen dataclass)
-- Future logging utilities (log cleanup, ANSI stripping mentioned in architecture) have a home
-- Follows "one file per domain entity" - logging is a domain concern
+- Future turn log utilities (ANSI stripping, cleanup) can be methods
+- Leaves room for other log classes (e.g., MachineLog) later
+- No static methods: need a path? Create a TurnLog instance
 
 ### Implementation Pattern
 
 ```python
-# afk/logging.py
+# afk/turn_log.py
 from pathlib import Path
 
 
-def format_log_filename(turn_number: int, transition_type: str) -> str:
-    """Format log filename from turn number and transition type.
+class TurnLog:
+    def __init__(self, turn_number: int, transition_type: str, log_dir: Path) -> None:
+        self._turn_number = turn_number
+        self._transition_type = transition_type
+        self._log_dir = log_dir
 
-    Returns filename like: turn-003-coding.log
-    """
-    return f"turn-{turn_number:03d}-{transition_type}.log"
+    @property
+    def filename(self) -> str:
+        return f"turn-{self._turn_number:03d}-{self._transition_type}.log"
 
+    @property
+    def path(self) -> Path:
+        return (self._log_dir / self.filename).absolute()
 
-def log_path_for_turn(log_dir: Path, turn_number: int, transition_type: str) -> Path:
-    """Generate absolute path for turn's log file.
-
-    Combines log directory with formatted filename.
-    """
-    filename = format_log_filename(turn_number, transition_type)
-    return (log_dir / filename).resolve()
+    def __repr__(self) -> str:
+        return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._log_dir})"
 ```
 
 ### Zero-Padding Rationale
@@ -129,84 +121,94 @@ This story provides the naming utilities. Story 2.4 (Turn Execution Integration)
 
 ### Existing Code Integration Points
 
-The functions will be used by higher-level code (Story 2.4) like:
+The class will be used by higher-level code (Story 2.4) like:
 
 ```python
 # Future usage in session.execute_turn() (Story 2.4):
-from afk.logging import log_path_for_turn
+from afk.turn_log import TurnLog
 
-log_file = log_path_for_turn(session.log_dir, turn_number, transition_type)
-result = execute_turn(driver, prompt, str(log_file))
+turn_log = TurnLog(turn_number, transition_type, session.log_dir)
+result = execute_turn(driver, prompt, str(turn_log.path))
 turn = Turn(
     turn_number=turn_number,
     transition_type=transition_type,
     result=result,
-    log_file=log_file,
+    log_file=turn_log.path,
     timestamp=datetime.now(timezone.utc),
 )
 ```
 
-### Turn.log_file Already Exists
+### Where log_dir Comes From
 
-From Story 2.1, the `Turn` dataclass already has:
-- `log_file: Path` field
-- Validation that it's a non-empty absolute path
+**Prerequisite for Story 2.4:** Session needs `root_dir` in constructor and `log_dir` as read-only property.
 
-AC #3 ("path is accessible via `turn.log_file`") is **already satisfied** by the Turn implementation. This story just needs to provide the naming utility.
+```python
+class Session:
+    def __init__(self, root_dir: Path) -> None:
+        self._root_dir = root_dir
+        self._turns: list[Turn] = []
+
+    @property
+    def log_dir(self) -> Path:
+        return self._root_dir / "logs"
+```
+
+Run directory structure:
+```
+~/runs/trivial-001/        # root_dir (Session constructor arg)
+├── logs/                  # session.log_dir
+│   ├── turn-001-init.log
+│   ├── turn-002-coding.log
+│   └── ...
+└── ...
+```
+
+This change to Session is **not part of Story 2.3** - it should be added in Story 2.4 when `execute_turn` integration is built.
 
 ### Testing Strategy
 
 Simple unit tests with no external dependencies:
 
 ```python
-# tests/test_log_naming.py
-from pathlib import Path
-
-from afk.logging import format_log_filename, log_path_for_turn
+# tests/test_turn_log.py
+from afk.turn_log import TurnLog
 
 
-class TestFormatLogFilename:
-    def test_basic_format(self):
-        assert format_log_filename(1, "init") == "turn-001-init.log"
-        assert format_log_filename(3, "coding") == "turn-003-coding.log"
+class TestTurnLogFilename:
+    def test_basic_format(self, tmp_path):
+        log = TurnLog(1, "init", tmp_path)
+        assert log.filename == "turn-001-init.log"
 
-    def test_zero_padding(self):
-        assert format_log_filename(1, "coding") == "turn-001-coding.log"
-        assert format_log_filename(10, "coding") == "turn-010-coding.log"
-        assert format_log_filename(100, "coding") == "turn-100-coding.log"
-        assert format_log_filename(999, "coding") == "turn-999-coding.log"
+    def test_zero_padding(self, tmp_path):
+        assert TurnLog(1, "coding", tmp_path).filename == "turn-001-coding.log"
+        assert TurnLog(10, "coding", tmp_path).filename == "turn-010-coding.log"
+        assert TurnLog(100, "coding", tmp_path).filename == "turn-100-coding.log"
+        assert TurnLog(999, "coding", tmp_path).filename == "turn-999-coding.log"
 
-    def test_different_transition_types(self):
-        assert format_log_filename(1, "init") == "turn-001-init.log"
-        assert format_log_filename(1, "coding") == "turn-001-coding.log"
+    def test_different_transition_types(self, tmp_path):
+        assert TurnLog(1, "init", tmp_path).filename == "turn-001-init.log"
+        assert TurnLog(1, "coding", tmp_path).filename == "turn-001-coding.log"
 
 
-class TestLogPathForTurn:
-    def test_combines_directory_and_filename(self):
-        log_dir = Path("/tmp/logs")
-        path = log_path_for_turn(log_dir, 3, "coding")
-        assert path == Path("/tmp/logs/turn-003-coding.log")
+class TestTurnLogPath:
+    def test_combines_directory_and_filename(self, tmp_path):
+        log = TurnLog(3, "coding", tmp_path)
+        assert log.path == tmp_path / "turn-003-coding.log"
 
-    def test_returns_absolute_path(self):
-        log_dir = Path("/tmp/logs")
-        path = log_path_for_turn(log_dir, 1, "init")
-        assert path.is_absolute()
-
-    def test_resolves_path(self):
-        log_dir = Path("/tmp/logs/../logs")
-        path = log_path_for_turn(log_dir, 1, "init")
-        assert ".." not in str(path)
+    def test_returns_absolute_path(self, tmp_path):
+        log = TurnLog(1, "init", tmp_path)
+        assert log.path.is_absolute()
 ```
 
 ### Project Structure After This Story
 
 ```
 afk/
-├── __init__.py          # Exports: ..., format_log_filename, log_path_for_turn
+├── __init__.py          # Exports: ..., TurnLog
 ├── driver.py            # Driver class
 ├── executor.py          # execute_turn() function
 ├── git.py               # Git class
-├── logging.py           # NEW: Log naming utilities
+├── turn_log.py          # NEW: TurnLog class
 ├── session.py           # Session class
 ├── turn.py              # Turn dataclass
 └── turn_result.py       # TurnResult dataclass
@@ -215,7 +217,7 @@ tests/
 ├── test_driver.py
 ├── test_executor.py
 ├── test_git.py
-├── test_log_naming.py   # NEW: Log naming tests
+├── test_turn_log.py     # NEW: TurnLog tests
 ├── test_session.py
 └── test_turn.py
 ```
@@ -262,7 +264,7 @@ f0adcab feat: add Turn dataclass for tracking prompt executions (Story 2.1)
 
 Expected commit for this story:
 ```
-feat: add log file naming utilities (Story 2.3)
+feat: add TurnLog class for log file naming (Story 2.3)
 ```
 
 ### References

@@ -68,6 +68,7 @@ outcome: success
 - **Dependency injection via constructor only.** No setter injection. Once constructed, dependencies don't change.
 - **Never iterate through live mutable collections.** Return a snapshot (tuple/copy) to prevent mid-iteration surprises.
 - **Domain classes must be good Python citizens.** Implement `__repr__` (always), plus `__iter__`, `__len__`, `__getitem__`, `__contains__` where semantically meaningful.
+- **LLM output vs Python output.** LLM-generated values: treat as human input, be lenient. Python-generated values: validate at creation, throw if invalid.
 
 ### Project Structure
 

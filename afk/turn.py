@@ -9,6 +9,7 @@ from afk.turn_result import TurnResult
 @dataclass(frozen=True)
 class Turn:
     ALLOWED_TRANSITION_TYPES: ClassVar[FrozenSet[str]] = frozenset({"init", "coding"})
+    MAX_TURN_NUMBER: ClassVar[int] = 100_000
 
     turn_number: int
     transition_type: str
@@ -19,6 +20,8 @@ class Turn:
     def __post_init__(self) -> None:
         if self.turn_number < 1:
             raise ValueError("turn_number must be >= 1")
+        if self.turn_number >= self.MAX_TURN_NUMBER:
+            raise ValueError(f"turn_number must be < {self.MAX_TURN_NUMBER}")
 
         transition_type = self.transition_type.strip().lower()
         if not transition_type:

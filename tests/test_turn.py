@@ -94,6 +94,16 @@ class TestTurn:
                 timestamp=datetime.now(timezone.utc),
             )
 
+    def test_turn_rejects_turn_number_at_max(self):
+        with pytest.raises(ValueError, match="turn_number must be < 100000"):
+            Turn(
+                turn_number=Turn.MAX_TURN_NUMBER,
+                transition_type="init",
+                result=None,
+                log_file=Path("/logs/turn.txt"),
+                timestamp=datetime.now(timezone.utc),
+            )
+
     def test_turn_rejects_unknown_transition_type(self):
         with pytest.raises(ValueError, match="transition_type must be one of"):
             Turn(
