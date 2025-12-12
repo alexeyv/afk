@@ -1,6 +1,6 @@
 # Story 2.3: Turn-Based Logging
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -20,28 +20,28 @@ so that I can easily find logs for specific turns.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create TurnLog class (AC: #1, #2)
-  - [ ] 1.1: Create `afk/turn_log.py` module
-  - [ ] 1.2: Create `TurnLog` class with constructor `(turn_number, transition_type, log_dir)`
-  - [ ] 1.3: Add `filename` property returning `turn-{NNN}-{type}.log` pattern
-  - [ ] 1.4: Add `path` property returning absolute Path
+- [x] Task 1: Create TurnLog class (AC: #1, #2)
+  - [x] 1.1: Create `afk/turn_log.py` module
+  - [x] 1.2: Create `TurnLog` class with constructor `(turn_number, transition_type, log_dir)`
+  - [x] 1.3: Add `filename` property returning `turn-{NNN}-{type}.log` pattern
+  - [x] 1.4: Add `path` property returning absolute Path
 
-- [ ] Task 2: Write unit tests for TurnLog (AC: #1, #2)
-  - [ ] 2.1: Create `tests/test_turn_log.py`
-  - [ ] 2.2: Test `filename` property returns correct pattern
-  - [ ] 2.3: Test zero-padding works correctly (1 -> "001", 10 -> "010", 100 -> "100")
-  - [ ] 2.4: Test `path` property combines directory and filename correctly
-  - [ ] 2.5: Test `path` is absolute
-  - [ ] 2.6: Test different transition types produce different filenames
+- [x] Task 2: Write unit tests for TurnLog (AC: #1, #2)
+  - [x] 2.1: Create `tests/test_turn_log.py`
+  - [x] 2.2: Test `filename` property returns correct pattern
+  - [x] 2.3: Test zero-padding works correctly (1 -> "001", 10 -> "010", 100 -> "100")
+  - [x] 2.4: Test `path` property combines directory and filename correctly
+  - [x] 2.5: Test `path` is absolute
+  - [x] 2.6: Test different transition types produce different filenames
 
-- [ ] Task 3: Export TurnLog from package (AC: all)
-  - [ ] 3.1: Add `TurnLog` to `afk/__init__.py`
+- [x] Task 3: Export TurnLog from package (AC: all)
+  - [x] 3.1: Add `TurnLog` to `afk/__init__.py`
 
-- [ ] Task 4: Run quality gate (all ACs)
-  - [ ] 4.1: Run `uv run ruff check afk/ tests/`
-  - [ ] 4.2: Run `uv run ruff format --check afk/ tests/`
-  - [ ] 4.3: Run `uv run pyright --threads`
-  - [ ] 4.4: Run `uv run pytest`
+- [x] Task 4: Run quality gate (all ACs)
+  - [x] 4.1: Run `uv run ruff check afk/ tests/`
+  - [x] 4.2: Run `uv run ruff format --check afk/ tests/`
+  - [x] 4.3: Run `uv run pyright --threads`
+  - [x] 4.4: Run `uv run pytest`
 
 ## Dev Notes
 
@@ -251,7 +251,7 @@ This is the third story in Epic 2 (Turn Tracking & Session Management):
 ### Functional Requirements Covered
 
 - **FR8**: Logs and artifacts are named by turn number and transition type
-  - Implemented by `format_log_filename()` function
+  - Implemented by `TurnLog` class
 
 ### Git Commit Patterns from Recent History
 
@@ -285,10 +285,35 @@ feat: add TurnLog class for log file naming (Story 2.3)
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
+N/A - Implementation straightforward, no debugging required.
+
 ### Completion Notes List
 
+- Implemented `TurnLog` class following the design pattern from Dev Notes (Option A: class approach)
+- Class provides `filename` property returning `turn-{NNN}-{type}.log` pattern with 3-digit zero-padding
+- Class provides `path` property returning absolute Path by combining `log_dir` and `filename`
+- Added `__repr__` for debugging/logging
+- 11 unit tests covering all ACs:
+  - AC #1: Basic format test (`turn-003-coding.log`)
+  - AC #2: Different turn numbers and transition types produce unique filenames
+  - Zero-padding edge cases (1, 10, 100, 999)
+  - Path combination and absoluteness
+- Exported `TurnLog` from `afk/__init__.py`
+- All quality gates passed: ruff check, ruff format, pyright (0 errors), pytest (101 passed)
+
 ### File List
+
+- `afk/turn_log.py` (NEW) - TurnLog class implementation
+- `afk/__init__.py` (MODIFIED) - Added TurnLog export
+- `tests/test_turn_log.py` (NEW) - Unit tests for TurnLog
+- `docs/sprint-artifacts/sprint-status.yaml` (MODIFIED) - Status: in-progress → review
+- `docs/sprint-artifacts/2-3-turn-based-logging.md` (MODIFIED) - Tasks marked complete, status updated
+- `docs/sprint-artifacts/2-2-session-tracking.md` (MODIFIED) - Status: review → done
+
+### Change Log
+
+- 2025-12-12: Story 2.3 implemented - TurnLog class for turn-based log file naming (AC #1, #2 satisfied)

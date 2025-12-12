@@ -1,6 +1,6 @@
 # Story 2.2: Session Tracking
 
-Status: review
+Status: done
 
 ## Story
 
