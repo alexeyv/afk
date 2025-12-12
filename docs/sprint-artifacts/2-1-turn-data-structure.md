@@ -1,6 +1,6 @@
 # Story 2.1: Turn Data Structure
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -24,31 +24,31 @@ so that I can track and reference individual turns in a session.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `Turn` dataclass in `afk/turn.py` (AC: #1, #2)
-  - [ ] 1.1: Create new file `afk/turn.py`
-  - [ ] 1.2: Define `Turn` dataclass with `frozen=True`
-  - [ ] 1.3: Add field `turn_number: int`
-  - [ ] 1.4: Add field `transition_type: str`
-  - [ ] 1.5: Add field `result: TurnResult | None`
-  - [ ] 1.6: Add field `log_file: str`
-  - [ ] 1.7: Add field `timestamp: datetime` (from `datetime.datetime`)
+- [x] Task 1: Create `Turn` dataclass in `afk/turn.py` (AC: #1, #2)
+  - [x] 1.1: Create new file `afk/turn.py`
+  - [x] 1.2: Define `Turn` dataclass with `frozen=True`
+  - [x] 1.3: Add field `turn_number: int`
+  - [x] 1.4: Add field `transition_type: str`
+  - [x] 1.5: Add field `result: TurnResult | None`
+  - [x] 1.6: Add field `log_file: str`
+  - [x] 1.7: Add field `timestamp: datetime` (from `datetime.datetime`)
 
-- [ ] Task 2: Write unit tests for `Turn` (AC: #1, #2)
-  - [ ] 2.1: Create `tests/test_turn.py`
-  - [ ] 2.2: Test `Turn` can be instantiated with all required fields
-  - [ ] 2.3: Test `Turn` fields are accessible as properties
-  - [ ] 2.4: Test `Turn` is immutable (frozen) - attempting to modify raises FrozenInstanceError
-  - [ ] 2.5: Test `Turn` accepts `result=None` for exception cases
-  - [ ] 2.6: Test `Turn` with various transition_type values ("init", "coding", etc.)
+- [x] Task 2: Write unit tests for `Turn` (AC: #1, #2)
+  - [x] 2.1: Create `tests/test_turn.py`
+  - [x] 2.2: Test `Turn` can be instantiated with all required fields
+  - [x] 2.3: Test `Turn` fields are accessible as properties
+  - [x] 2.4: Test `Turn` is immutable (frozen) - attempting to modify raises FrozenInstanceError
+  - [x] 2.5: Test `Turn` accepts `result=None` for exception cases
+  - [x] 2.6: Test `Turn` with various transition_type values ("init", "coding", etc.)
 
-- [ ] Task 3: Export `Turn` from package (AC: #1)
-  - [ ] 3.1: Add `Turn` to `afk/__init__.py` exports
+- [x] Task 3: Export `Turn` from package (AC: #1)
+  - [x] 3.1: Add `Turn` to `afk/__init__.py` exports
 
-- [ ] Task 4: Run quality gate (all ACs)
-  - [ ] 4.1: Run `uv run ruff check afk/ tests/`
-  - [ ] 4.2: Run `uv run ruff format --check afk/ tests/`
-  - [ ] 4.3: Run `uv run pyright --threads`
-  - [ ] 4.4: Run `uv run pytest`
+- [x] Task 4: Run quality gate (all ACs)
+  - [x] 4.1: Run `uv run ruff check afk/ tests/`
+  - [x] 4.2: Run `uv run ruff format --check afk/ tests/`
+  - [x] 4.3: Run `uv run pyright --threads`
+  - [x] 4.4: Run `uv run pytest`
 
 ## Dev Notes
 
@@ -245,10 +245,24 @@ This is the first story in Epic 2 (Turn Tracking & Session Management). The `Tur
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Created `Turn` frozen dataclass following the established `TurnResult` pattern
+- Implemented 5 unit tests covering: successful result, None result, immutability, various transition types, and field accessibility
+- Added `Turn` to package exports in `afk/__init__.py`
+- All quality gates passed: ruff check, ruff format, pyright (0 errors), pytest (74 passed, 3 skipped)
+
+### Change Log
+
+- 2025-12-11: Implemented Turn data structure per Story 2.1 acceptance criteria
+- 2025-12-11: Code review fixed pyright error in test_turn.py (added type narrowing for Optional access)
+
 ### File List
+
+- afk/turn.py (new)
+- afk/__init__.py (modified)
+- tests/test_turn.py (new, modified by review)
