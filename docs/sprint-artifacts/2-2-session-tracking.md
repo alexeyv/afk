@@ -324,17 +324,27 @@ N/A - no debug issues encountered
 - ✅ `turn(n)` returns Turn by number or raises `KeyError`
 - ✅ `__iter__` provides chronological iteration
 - ✅ `turns` property returns immutable `tuple[Turn, ...]`
-- ✅ All 9 unit tests pass covering all 4 acceptance criteria
-- ✅ Full test suite: 88 passed, 3 skipped
+- ✅ All 10 unit tests pass covering all 4 acceptance criteria
+- ✅ Full test suite: 89 passed, 3 skipped
 - ✅ Quality gate: ruff check, ruff format, pyright all pass
 
 ### File List
 
 **New Files:**
 - `afk/session.py` - Session class implementation
-- `tests/test_session.py` - Unit tests for Session (9 tests)
+- `tests/test_session.py` - Unit tests for Session (10 tests)
 
 **Modified Files:**
 - `afk/__init__.py` - Added Session to exports
-- `docs/sprint-artifacts/sprint-status.yaml` - Status updates
-- `docs/sprint-artifacts/2-2-session-tracking.md` - Story completion
+
+### Code Review Changes
+
+**Modified in review:**
+- `afk/session.py` - Added monotonic assert + early exit in `turn()`, snapshot iterator in `__iter__`, added `__len__`, `__repr__`, `__getitem__`, fixed KeyError to use key value
+- `tests/test_session.py` - Fixed type error (string→Path for log_file), added state corruption test, use fixed timestamp
+- `docs/project_context.md` - Added Python conventions: hard asserts, invariants, constructor DI, snapshot iteration, domain class citizenship
+- `pyproject.toml` - Documented why tests aren't strict-typed
+
+### Follow-up Required
+
+**Domain class citizenship:** Other domain classes (Turn, TurnResult, Driver, Git) need review for `__repr__` and other Python dunder methods. Added to project_context.md as a standard.

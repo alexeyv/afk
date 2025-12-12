@@ -63,6 +63,11 @@ outcome: success
 - Never dispatch on error type (no `except SomeError`)—catch-all or let it crash
 - Skip docstrings unless genuinely clarifying
 - No inline comments—put comments on the line above
+- **Asserts are always hard.** No `if __debug__:` anywhere. Fail fast, catch bugs early.
+- **Think through invariants.** When designing classes, identify what must always be true and make violations impossible or assert them.
+- **Dependency injection via constructor only.** No setter injection. Once constructed, dependencies don't change.
+- **Never iterate through live mutable collections.** Return a snapshot (tuple/copy) to prevent mid-iteration surprises.
+- **Domain classes must be good Python citizens.** Implement `__repr__` (always), plus `__iter__`, `__len__`, `__getitem__`, `__contains__` where semantically meaningful.
 
 ### Project Structure
 

@@ -1,5 +1,6 @@
 import subprocess
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -42,10 +43,12 @@ def make_commit(git: Git, message: str) -> str:
         check=True,
         capture_output=True,
     )
-    return git.head_commit()
+    commit_hash = git.head_commit()
+    assert commit_hash is not None
+    return commit_hash
 
 
-def mock_driver(git: Git, run_fn) -> Driver:
+def mock_driver(git: Git, run_fn: Callable[[str, str], int]) -> Driver:
     """Create a mock driver with custom run function."""
     driver = Mock(spec=Driver)
     driver.git = git
@@ -517,7 +520,7 @@ class TestMultipleCommitsErrorEdgeCases:
     """Tests for edge cases in multiple commits error."""
 
     def test_handles_unreadable_commit(
-        self, git_repo: Git, tmp_path: Path, monkeypatch
+        self, git_repo: Git, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """Should handle case where commit_summary fails for a commit."""
         make_commit(git_repo, "initial")

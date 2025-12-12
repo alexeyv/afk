@@ -16,9 +16,8 @@ build-backend = "hatchling.build"
 addopts = "-q --tb=short"
 
 [tool.pyright]
-# Strict mode catches more bugs (Optional vs required, etc.)
 typeCheckingMode = "strict"
-# Only check our code, not dependencies
+# Production code only - tests need flexibility for mocks and private access
 include = ["afk"]
 
 [dependency-groups]

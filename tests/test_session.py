@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
 from afk.session import Session
 from afk.turn import Turn
 from afk.turn_result import TurnResult
+
+FIXED_TIME = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def make_turn(n: int, transition_type: str = "coding") -> Turn:
@@ -13,8 +16,8 @@ def make_turn(n: int, transition_type: str = "coding") -> Turn:
         turn_number=n,
         transition_type=transition_type,
         result=TurnResult(outcome="success", message="test", commit_hash="abc123"),
-        log_file=f"/logs/turn-{n:03d}.log",
-        timestamp=datetime.now(timezone.utc),
+        log_file=Path(f"/logs/turn-{n:03d}.log"),
+        timestamp=FIXED_TIME,
     )
 
 
@@ -87,3 +90,14 @@ class TestSession:
         session.add_turn(make_turn(1))
         with pytest.raises(ValueError, match="Expected turn number 2"):
             session.add_turn(make_turn(5))  # Should be 2
+
+    def test_failed_add_doesnt_corrupt_state(self):
+        """Failed add_turn must leave session state unchanged."""
+        session = Session()
+        session.add_turn(make_turn(1))
+        with pytest.raises(ValueError):
+            session.add_turn(make_turn(5))  # Wrong number - fails
+        session.add_turn(make_turn(2))  # Correct next - should work
+        assert len(session) == 2
+        assert session.turn(1).turn_number == 1
+        assert session.turn(2).turn_number == 2

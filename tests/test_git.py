@@ -38,7 +38,9 @@ def make_commit(git: Git, message: str) -> str:
         check=True,
         capture_output=True,
     )
-    return git.head_commit()
+    commit_hash = git.head_commit()
+    assert commit_hash is not None
+    return commit_hash
 
 
 class TestHeadCommit:

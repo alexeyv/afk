@@ -21,7 +21,7 @@ class TestTurnResultDataclass:
             commit_hash="abc123",
         )
         with pytest.raises(AttributeError):
-            result.outcome = "failure"
+            result.outcome = "failure"  # type: ignore[misc]
 
     def test_turn_result_equality(self):
         result1 = TurnResult(

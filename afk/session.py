@@ -41,14 +41,28 @@ class Session:
         Raises:
             KeyError: If no turn with that number exists.
         """
+        prev = 0
         for t in self._turns:
+            assert t.turn_number > prev, "Turns not monotonic"
             if t.turn_number == n:
                 return t
-        raise KeyError(f"No turn with number {n}")
+            if t.turn_number > n:
+                break
+            prev = t.turn_number
+        raise KeyError(n)
 
     def __iter__(self) -> Iterator[Turn]:
         """Iterate over turns in chronological order."""
-        return iter(self._turns)
+        return iter(tuple(self._turns))
+
+    def __len__(self) -> int:
+        return len(self._turns)
+
+    def __repr__(self) -> str:
+        return f"Session(turns={len(self._turns)})"
+
+    def __getitem__(self, n: int) -> Turn:
+        return self.turn(n)
 
     @property
     def turns(self) -> tuple[Turn, ...]:

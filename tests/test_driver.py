@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -68,7 +69,7 @@ class TestDriverInit:
 class TestDriverBuildCommand:
     def test_builds_command_without_model(self, git_repo: Git):
         driver = Driver(git_repo)
-        cmd = driver._build_command("test prompt", "/tmp/log.txt")
+        cmd = driver._build_command("test prompt", "/tmp/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         assert cmd[0] == "script"
         assert "claude" in cmd
@@ -78,7 +79,7 @@ class TestDriverBuildCommand:
 
     def test_builds_command_with_model(self, git_repo: Git):
         driver = Driver(git_repo, model="claude-3-5-haiku-latest")
-        cmd = driver._build_command("test prompt", "/tmp/log.txt")
+        cmd = driver._build_command("test prompt", "/tmp/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         assert "--model" in cmd
         assert "claude-3-5-haiku-latest" in cmd
@@ -86,7 +87,7 @@ class TestDriverBuildCommand:
     @pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific test")
     def test_macos_command_format(self, git_repo: Git):
         driver = Driver(git_repo)
-        cmd = driver._build_command("my prompt", "/path/to/log.txt")
+        cmd = driver._build_command("my prompt", "/path/to/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         # macOS: script -q <logfile> claude --print <prompt>
         assert cmd[0] == "script"
@@ -99,7 +100,7 @@ class TestDriverBuildCommand:
     @pytest.mark.skipif(sys.platform == "darwin", reason="Linux-specific test")
     def test_linux_command_format(self, git_repo: Git):
         driver = Driver(git_repo)
-        cmd = driver._build_command("my prompt", "/path/to/log.txt")
+        cmd = driver._build_command("my prompt", "/path/to/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         # Linux: script -q -c "<command>" <logfile>
         assert cmd[0] == "script"
@@ -115,7 +116,7 @@ class TestDriverBuildCommand:
     def test_linux_command_escapes_shell_metacharacters(self, git_repo: Git):
         driver = Driver(git_repo)
         malicious_prompt = "hello; rm -rf / #"
-        cmd = driver._build_command(malicious_prompt, "/tmp/log.txt")
+        cmd = driver._build_command(malicious_prompt, "/tmp/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         # Linux: script -q -c "<escaped command>" <logfile>
         cmd_str = cmd[3]
@@ -433,23 +434,25 @@ driver.run('test prompt', '{log_file}')
 class TestCLIAvailability:
     """Tests for AC #3: CLI availability error message."""
 
-    def test_cli_unavailable_runs_version_check(self, tmp_path: Path, monkeypatch):
+    def test_cli_unavailable_runs_version_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
         """Should use 'claude --version' instead of 'which claude'."""
         import afk.driver
 
         # Reset the cached check
-        afk.driver._env_checked = False
+        afk.driver._env_checked = False  # pyright: ignore[reportPrivateUsage]
 
-        calls = []
+        calls: list[list[str]] = []
 
         original_run = subprocess.run
 
-        def mock_run(cmd, **kwargs):
+        def mock_run(cmd: list[str], **kwargs: Any) -> Any:
             calls.append(cmd)
             # Fail claude --version
             if cmd == ["claude", "--version"]:
                 return type("Result", (), {"returncode": 1, "stderr": "error"})()
-            return original_run(cmd, **kwargs)
+            return cast(Any, original_run(cmd, **kwargs))
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
@@ -463,18 +466,20 @@ class TestCLIAvailability:
         # Should have called claude --version
         assert ["claude", "--version"] in calls
 
-    def test_cli_unavailable_error_message(self, tmp_path: Path, monkeypatch):
+    def test_cli_unavailable_error_message(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
         """Error message should indicate CLI is unavailable."""
         import afk.driver
 
-        afk.driver._env_checked = False
+        afk.driver._env_checked = False  # pyright: ignore[reportPrivateUsage]
 
         original_run = subprocess.run
 
-        def mock_run(cmd, **kwargs):
+        def mock_run(cmd: list[str], **kwargs: Any) -> Any:
             if cmd == ["claude", "--version"]:
                 return type("Result", (), {"returncode": 1, "stderr": "error"})()
-            return original_run(cmd, **kwargs)
+            return cast(Any, original_run(cmd, **kwargs))
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
@@ -488,18 +493,20 @@ class TestCLIAvailability:
         error_msg = str(exc_info.value)
         assert "claude" in error_msg and "failed" in error_msg
 
-    def test_cli_unavailable_mentions_version_failed(self, tmp_path: Path, monkeypatch):
+    def test_cli_unavailable_mentions_version_failed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
         """Error message should mention version check failed."""
         import afk.driver
 
-        afk.driver._env_checked = False
+        afk.driver._env_checked = False  # pyright: ignore[reportPrivateUsage]
 
         original_run = subprocess.run
 
-        def mock_run(cmd, **kwargs):
+        def mock_run(cmd: list[str], **kwargs: Any) -> Any:
             if cmd == ["claude", "--version"]:
                 return type("Result", (), {"returncode": 1, "stderr": "some error"})()
-            return original_run(cmd, **kwargs)
+            return cast(Any, original_run(cmd, **kwargs))
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
