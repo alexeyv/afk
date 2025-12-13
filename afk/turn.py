@@ -54,6 +54,9 @@ class Turn:
         if not isinstance(self.transition_type, TransitionType):
             raise TypeError(f"expected TransitionType, got {self.transition_type!r}")
 
+        if not isinstance(self.result, TurnResult):
+            raise TypeError(f"expected TurnResult, got {self.result!r}")
+
         raw_log_file = str(self.log_file).strip()
         if not raw_log_file:
             raise ValueError("log_file must be a non-empty path")
