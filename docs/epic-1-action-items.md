@@ -42,10 +42,12 @@ This registry feeds into the "Dedupe" phase of the multi-LLM review workflow (Ac
 **Priority:** High - reduces review noise immediately
 
 **Acceptance Criteria:**
-- [ ] Create `docs/resolved-review-findings.md`
-- [ ] Seed with macOS exit code/signal finding
-- [ ] Document format for adding new resolved findings
+- [x] Create `docs/resolved-review-findings.md`
+- [x] Seed with macOS exit code/signal finding
+- [x] Document format for adding new resolved findings
 - [ ] Reference in review dedup workflow (when implemented)
+
+**Status:** ✅ Complete (2025-12-13) - Created `docs/resolved-review-findings.md` with exit code finding and format documentation.
 
 ---
 
@@ -144,7 +146,7 @@ Before marking a story complete, the dev agent MUST:
 
 ---
 
-## Action Item 3: Enhanced Multi-LLM Code Review Workflow
+## Action Item 4: Enhanced Multi-LLM Code Review Workflow
 
 **Problem Statement:**
 
