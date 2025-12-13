@@ -134,3 +134,5 @@ Type errors are bugs. Fix them, don't suppress them.
 - **Never name a module after stdlib**—no `logging.py`, `typing.py`, `collections.py`, etc.
 - **Never hardcode paths in tests**—use pytest's `tmp_path` fixture
 - **KeyError/IndexError take the key/index value, not a message string**—`raise KeyError(n)` not `raise KeyError(f"not found: {n}")`
+
+Project artifacts use formal technical English.
