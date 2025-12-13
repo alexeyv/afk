@@ -85,11 +85,13 @@ A diagram (Excalidraw or Mermaid) showing:
 **Priority:** Medium - valuable reference, not blocking
 
 **Acceptance Criteria:**
-- [ ] Create domain model diagram in `docs/`
-- [ ] Show lifecycle ownership arrows
-- [ ] Show cooperation/call arrows
-- [ ] List state attributes for each entity
-- [ ] Update as Epic 2 entities are implemented
+- [x] Create domain model diagram in `docs/`
+- [x] Show lifecycle ownership arrows
+- [x] Show cooperation/call arrows
+- [x] List state attributes for each entity
+- [x] Update as Epic 2 entities are implemented
+
+**Status:** ✅ Complete (2025-12-13) - Created `docs/domain-model.md` with Mermaid class diagram showing all 7 domain classes including Epic 2 entities (Turn, TurnLog, TransitionType, Session).
 
 ---
 
