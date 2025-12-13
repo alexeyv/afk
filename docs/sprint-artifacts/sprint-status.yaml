@@ -1,4 +1,4 @@
-# generated: 2025-12-11
+# generated: 2025-12-13
 # project: afk
 # project_key: afk
 # tracking_system: file-system
@@ -34,7 +34,7 @@
 # - SM typically drafts next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2025-12-11
+generated: 2025-12-13
 project: afk
 project_key: afk
 tracking_system: file-system
@@ -54,7 +54,7 @@ development_status:
   2-1-turn-data-structure: done
   2-2-session-tracking: done
   2-3-turn-based-logging: done
-  2-4-turn-execution-integration: review
+  2-4-turn-execution-integration: done
   epic-2-retrospective: optional
 
   # Epic 3: State Recovery & Rewind
