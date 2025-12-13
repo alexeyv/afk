@@ -76,7 +76,7 @@ Enhanced multi-LLM code review workflow (Action Item 4 from Epic 1) exists in BM
 
 **Problem Statement:**
 
-"Holy crap" moments from Epic 2 code review need to be permanently documented:
+Critical issues from Epic 2 code review need to be permanently documented:
 
 1. **Named file `logging.py`** - Shadows Python stdlib
 2. **Hardcoded `/tmp` in tests** - Fails on Windows

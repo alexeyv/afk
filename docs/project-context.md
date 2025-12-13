@@ -131,3 +131,6 @@ Type errors are bugs. Fix them, don't suppress them.
 - **No absolute paths**—compute from `__file__`
 - Don't suppress type errors with `# type: ignore`—fix the underlying issue
 - **No flaky tests. No "unrelated" failing tests.** Fix them. Deleting requires human approval.
+- **Never name a module after stdlib**—no `logging.py`, `typing.py`, `collections.py`, etc.
+- **Never hardcode paths in tests**—use pytest's `tmp_path` fixture
+- **KeyError/IndexError take the key/index value, not a message string**—`raise KeyError(n)` not `raise KeyError(f"not found: {n}")`
