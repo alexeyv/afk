@@ -28,14 +28,9 @@ afk is a **state machine executor**, not a loop orchestrator. The framework exec
 
 ### Version Control
 
-- **Agents never push.** Human reviews and pushes.
-- **Always use `git mv` for renames and moves.** Never use plain `mv` for version-controlled files.
-- **Before any commit, run quality checks** (see "Linting and Code Quality Checks" below). All must pass.
-- Planning workflows (PRD, architecture, epics): commit at workflow completion
-- Dev workflow (dev-story): commit after each step
-- Commit messages: `docs:` prefix for planning artifacts, conventional commits for code
-- Keep docs on main, no branch ceremony for planning
-- Amend only for typos, new commit for substantive changes
+**Note:** Dev agent ignores non-coding-style rules from this file. Git/commit rules live in:
+- `.bmad/_cfg/agents/bmm-dev.customize.yaml` — commit per task
+- `.bmad/_cfg/agents/bmm-sm.customize.yaml` — commit per workflow
 
 ### Commit Message Schema
 
