@@ -140,9 +140,11 @@ Before marking a story complete, the dev agent MUST:
 **Priority:** High - saves turns, reduces friction
 
 **Acceptance Criteria:**
-- [ ] Add "Dev Workflow: Quality Gate & Commit" section to project-context.md
-- [ ] Future stories reference this workflow in Dev Notes
-- [ ] Dev turns end with commit, not pending commit
+- [x] Add "Dev Workflow: Quality Gate & Commit" section to project-context.md
+- [x] Future stories reference this workflow in Dev Notes
+- [x] Dev turns end with commit, not pending commit
+
+**Status:** ✅ Complete (2025-12-13) - Implemented via agent customization files instead of project-context.md. Quality gate and commit rules now live in `.bmad/_cfg/agents/bmm-dev.customize.yaml` with critical_actions that enforce per-task commits and quality checks. This is better than doc-based rules since agents read their config directly.
 
 ---
 
