@@ -1,19 +1,47 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import ClassVar, FrozenSet
+from typing import ClassVar
 
+from afk.transition_type import TransitionType
 from afk.turn_result import TurnResult
 
 
 @dataclass(frozen=True)
 class Turn:
-    ALLOWED_TRANSITION_TYPES: ClassVar[FrozenSet[str]] = frozenset({"init", "coding"})
     MAX_TURN_NUMBER: ClassVar[int] = 100_000
+    _next_number: ClassVar[int] = 1
+
+    @classmethod
+    def next_turn_number(cls, resume_from: int | None = None) -> int:
+        """Return and increment the next turn number.
+
+        Args:
+            resume_from: If provided, resume counting from this number.
+                         Returns this number and sets next to resume_from + 1.
+        """
+        if resume_from is not None:
+            if resume_from < 1:
+                raise ValueError(f"resume_from must be >= 1, got {resume_from}")
+            if resume_from >= cls.MAX_TURN_NUMBER:
+                raise ValueError(f"resume_from {resume_from} >= {cls.MAX_TURN_NUMBER}")
+            cls._next_number = resume_from + 1
+            return resume_from
+
+        n = cls._next_number
+        if n >= cls.MAX_TURN_NUMBER:
+            raise ValueError(f"turn_number {n} >= {cls.MAX_TURN_NUMBER}")
+        cls._next_number += 1
+        return n
+
+    @classmethod
+    def reset_turn_counter(cls) -> None:
+        """Reset turn counter to 1 (for testing)."""
+        cls._next_number = 1
 
     turn_number: int
-    transition_type: str
-    result: TurnResult | None
+    transition_type: TransitionType
+    result: TurnResult
     log_file: Path
     timestamp: datetime
 
@@ -23,13 +51,8 @@ class Turn:
         if self.turn_number >= self.MAX_TURN_NUMBER:
             raise ValueError(f"turn_number must be < {self.MAX_TURN_NUMBER}")
 
-        transition_type = self.transition_type.strip().lower()
-        if not transition_type:
-            raise ValueError("transition_type must be non-empty")
-        if transition_type not in self.ALLOWED_TRANSITION_TYPES:
-            allowed = ", ".join(sorted(self.ALLOWED_TRANSITION_TYPES))
-            raise ValueError(f"transition_type must be one of: {allowed}")
-        object.__setattr__(self, "transition_type", transition_type)
+        if not isinstance(self.transition_type, TransitionType):
+            raise TypeError(f"expected TransitionType, got {self.transition_type!r}")
 
         raw_log_file = str(self.log_file).strip()
         if not raw_log_file:

@@ -19,6 +19,8 @@ addopts = "-q --tb=short"
 typeCheckingMode = "strict"
 # Production code only - tests need flexibility for mocks and private access
 include = ["afk"]
+# We use isinstance for runtime validation at domain boundaries (pyright only runs at dev time)
+reportUnnecessaryIsInstance = false
 
 [dependency-groups]
 dev = [

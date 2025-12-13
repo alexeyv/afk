@@ -65,6 +65,7 @@ outcome: success
 - No inline comments—put comments on the line above
 - **Asserts are always hard.** No `if __debug__:` anywhere. Fail fast, catch bugs early.
 - **Think through invariants.** When designing classes, identify what must always be true and make violations impossible or assert them.
+- **Domain classes validate at boundaries.** Strict runtime type and value validation on all inputs to mutating methods (including constructors). Enforce class invariants at the end of every mutating method. Static type checking (pyright) doesn't run at runtime—domain classes must protect themselves.
 - **Dependency injection via constructor only.** No setter injection. Once constructed, dependencies don't change.
 - **Never iterate through live mutable collections.** Return a snapshot (tuple/copy) to prevent mid-iteration surprises.
 - **Domain classes must be good Python citizens.** Implement `__repr__` (always), plus `__iter__`, `__len__`, `__getitem__`, `__contains__` where semantically meaningful.

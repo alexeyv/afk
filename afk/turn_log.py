@@ -4,10 +4,9 @@ This module provides the TurnLog class for generating log file names
 following the pattern turn-{NNN}-{type}.log.
 """
 
-import re
 from pathlib import Path
 
-_TRANSITION_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_.-]*$")
+from afk.transition_type import TransitionType
 
 
 class TurnLog:
@@ -22,24 +21,22 @@ class TurnLog:
         log_dir: Directory where log files are stored.
 
     Example:
-        >>> log = TurnLog(3, "coding", Path("/logs"))
+        >>> log = TurnLog(3, TransitionType("coding"), Path("/logs"))
         >>> log.filename
         'turn-00003-coding.log'
         >>> log.path
         Path('/logs/turn-00003-coding.log')
     """
 
-    def __init__(self, turn_number: int, transition_type: str, log_dir: Path) -> None:
+    def __init__(
+        self, turn_number: int, transition_type: TransitionType, log_dir: Path
+    ) -> None:
         if not 1 <= turn_number <= 99999:
             raise ValueError(
                 f"turn_number must be between 1 and 99999, got {turn_number}"
             )
-        if not _TRANSITION_TYPE_PATTERN.match(transition_type):
-            raise ValueError(
-                f"transition_type must be lowercase identifier "
-                f"(letters, digits, underscore, hyphen, dot; must start with letter): "
-                f"{transition_type!r}"
-            )
+        if not isinstance(transition_type, TransitionType):
+            raise TypeError(f"expected TransitionType, got {transition_type!r}")
         self._turn_number = turn_number
         self._transition_type = transition_type
         self._log_dir = log_dir
@@ -55,6 +52,4 @@ class TurnLog:
         return (self._log_dir / self.filename).absolute()
 
     def __repr__(self) -> str:
-        return (
-            f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._log_dir})"
-        )
+        return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._log_dir!r})"
