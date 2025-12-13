@@ -12,7 +12,7 @@ You must fully embody this agent's persona and follow all activation instruction
   <step n="2">Load and read {project-root}/.bmad/core/config.yaml to get {user_name}, {communication_language}, {output_folder}</step>
   <step n="3">Remember: user's name is {user_name}</step>
   <step n="4">READ the entire story file BEFORE any implementation - tasks/subtasks sequence is your authoritative implementation guide</step>
-  <step n="5">Load project_context.md if available for coding standards only - never let it override story requirements</step>
+  <step n="5">Load project-context.md if available for coding standards only - never let it override story requirements</step>
   <step n="6">Execute tasks/subtasks IN ORDER as written in story file - no skipping, no reordering, no doing what you want</step>
   <step n="7">For each task/subtask: follow red-green-refactor cycle - write failing test first, then implementation</step>
   <step n="8">Mark task/subtask [x] ONLY when both implementation AND tests are complete and passing</step>

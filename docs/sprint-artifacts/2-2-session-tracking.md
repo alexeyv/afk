@@ -342,9 +342,9 @@ N/A - no debug issues encountered
 **Modified in review:**
 - `afk/session.py` - Added monotonic assert + early exit in `turn()`, snapshot iterator in `__iter__`, added `__len__`, `__repr__`, `__getitem__`, fixed KeyError to use key value
 - `tests/test_session.py` - Fixed type error (string→Path for log_file), added state corruption test, use fixed timestamp
-- `docs/project_context.md` - Added Python conventions: hard asserts, invariants, constructor DI, snapshot iteration, domain class citizenship
+- `docs/project-context.md` - Added Python conventions: hard asserts, invariants, constructor DI, snapshot iteration, domain class citizenship
 - `pyproject.toml` - Documented why tests aren't strict-typed
 
 ### Follow-up Required
 
-**Domain class citizenship:** Other domain classes (Turn, TurnResult, Driver, Git) need review for `__repr__` and other Python dunder methods. Added to project_context.md as a standard.
+**Domain class citizenship:** Other domain classes (Turn, TurnResult, Driver, Git) need review for `__repr__` and other Python dunder methods. Added to project-context.md as a standard.

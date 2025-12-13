@@ -235,7 +235,7 @@ This is the first story in Epic 2 (Turn Tracking & Session Management). The `Tur
 - [Source: docs/prd.md#FR7] - Transition type labeling
 - [Source: docs/prd.md#FR8] - Artifact naming
 - [Source: afk/turn_result.py] - Existing dataclass pattern to follow
-- [Source: docs/project_context.md] - Quality gate requirements
+- [Source: docs/project-context.md] - Quality gate requirements
 
 ## Dev Agent Record
 

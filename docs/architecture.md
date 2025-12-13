@@ -320,10 +320,10 @@ afk/                              # Main repo
 │   ├── domain-model.md
 │   ├── architecture.md
 │   ├── version-control-rules.md
-│   └── project_context.md        # Generated after architecture
+│   └── project-context.md        # Generated after architecture
 ├── pyproject.toml
 ├── README.md
-└── CLAUDE.md                     # Points to docs/project_context.md
+└── CLAUDE.md                     # Points to docs/project-context.md
 ```
 
 ### Run Workspaces

@@ -223,7 +223,7 @@ All stories use proper Given/When/Then format with testable, specific outcomes.
 ### Recommended Next Steps
 
 1. **Proceed to Sprint Planning** - Artifacts are ready for implementation
-2. **Consider generating project_context.md** - Create AI-optimized context file for dev agents
+2. **Consider generating project-context.md** - Create AI-optimized context file for dev agents
 3. **Begin Epic 1** - Start with Core Prompt Execution stories
 
 ### Assessment Metrics

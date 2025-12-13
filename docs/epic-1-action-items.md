@@ -113,7 +113,7 @@ Dev turn ends with commit already done. Flow is:
 
 **Solution:**
 
-Add section to `project_context.md` with explicit dev workflow:
+Add section to `project-context.md` with explicit dev workflow:
 
 ```markdown
 ## Dev Workflow: Quality Gate & Commit
@@ -135,12 +135,12 @@ Before marking a story complete, the dev agent MUST:
 4. Only then mark story tasks complete
 ```
 
-**Owner:** SM (add to project_context.md, apply to future story creation)
+**Owner:** SM (add to project-context.md, apply to future story creation)
 
 **Priority:** High - saves turns, reduces friction
 
 **Acceptance Criteria:**
-- [ ] Add "Dev Workflow: Quality Gate & Commit" section to project_context.md
+- [ ] Add "Dev Workflow: Quality Gate & Commit" section to project-context.md
 - [ ] Future stories reference this workflow in Dev Notes
 - [ ] Dev turns end with commit, not pending commit
 

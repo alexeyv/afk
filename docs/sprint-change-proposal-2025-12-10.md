@@ -25,7 +25,7 @@ The commit message outcome format `[outcome] comment` specified in Architecture 
 | Artifact | Section | Change |
 |----------|---------|--------|
 | architecture.md | Commit Message Schema | Update format and example |
-| project_context.md | Commit Message Schema | Update format and example |
+| project-context.md | Commit Message Schema | Update format and example |
 | epics.md | Story 1-1, 1-3, 6-2 acceptance criteria | Update format references |
 | afk/git.py | parse_commit_message() | Update regex if implemented |
 
@@ -63,7 +63,7 @@ outcome: success
 
 Also update description from `[outcome] comment` to `outcome: value`.
 
-### Edit 2: project_context.md - Commit Message Schema
+### Edit 2: project-context.md - Commit Message Schema
 
 **OLD:**
 ```
@@ -101,7 +101,7 @@ Update all references:
 
 | Role | Responsibility |
 |------|----------------|
-| SM | Update architecture.md, project_context.md, epics.md |
+| SM | Update architecture.md, project-context.md, epics.md |
 | Dev | Update git.py parsing if already implemented |
 
 ## Approval

@@ -241,7 +241,7 @@ def make_commit(git: Git, message: str) -> str:
 - [Source: docs/architecture.md#Python Conventions] - snake_case, RuntimeError, no docstrings
 - [Source: docs/architecture.md#Project Structure] - afk/git.py location
 - [Source: docs/architecture.md#Test Strategy] - pytest, fixtures for temp repos
-- [Source: docs/project_context.md#Critical Rules] - Version control, Python conventions
+- [Source: docs/project-context.md#Critical Rules] - Version control, Python conventions
 - [Source: docs/epics.md#Story 1.1] - Acceptance criteria source
 
 ## Dev Agent Record

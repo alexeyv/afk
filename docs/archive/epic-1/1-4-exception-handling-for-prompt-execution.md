@@ -337,7 +337,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - All error messages now include log file path for debugging per NFR6
 - Added 17 new tests covering all error scenarios
 - Fixed flaky `test_partial_log_preserved_on_interrupt` - replaced timing-dependent test with reliable platform-specific tests
-- Added "Testing Rules" section to project_context.md documenting no-flaky-tests policy
+- Added "Testing Rules" section to project-context.md documenting no-flaky-tests policy
 - All 60 tests pass (3 OS-specific skipped)
 
 ### File List
@@ -346,7 +346,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - afk/driver.py (modified) - Changed CLI check to use `claude --version`
 - tests/test_executor.py (modified) - Added TestZeroCommitsError, TestMultipleCommitsError, TestNonZeroExitError, TestSignalTerminationError
 - tests/test_driver.py (modified) - Added TestCLIAvailability, fixed flaky signal tests
-- docs/project_context.md (modified) - Added Testing Rules section
+- docs/project-context.md (modified) - Added Testing Rules section
 
 ## Change Log
 

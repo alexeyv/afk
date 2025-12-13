@@ -88,7 +88,7 @@ so that turn tracking is automatic during prompt execution.
 
 ### TransitionType Value Class
 
-Per `project_context.md`: "Domain classes must be good Python citizens."
+Per `project-context.md`: "Domain classes must be good Python citizens."
 
 TransitionType validates format once at construction using pattern `^[a-z][a-z0-9_.-]*$`. Implements:
 - `__str__`: Returns the raw value
@@ -163,7 +163,7 @@ The Session needs access to a Driver to execute prompts. Options:
 **Option C: Global/singleton driver** - Not acceptable per project conventions
 
 **Recommendation: Option A (constructor injection)**
-- Follows `docs/project_context.md`: "Dependency injection via constructor only"
+- Follows `docs/project-context.md`: "Dependency injection via constructor only"
 - Once constructed, dependencies don't change
 - Session can execute multiple turns with same driver
 - Simpler API: `session.execute_turn(prompt, type)` vs passing driver every call
@@ -232,7 +232,7 @@ class Session:
 
 ### Testing Strategy
 
-Per `project_context.md`: **No mocks.** Use fake CLI scripts to simulate Claude.
+Per `project-context.md`: **No mocks.** Use fake CLI scripts to simulate Claude.
 
 Follow the existing pattern in `test_driver.py:fake_claude()`:
 1. Write a temp bash script in `tmp_path` that acts as `claude`
@@ -337,7 +337,7 @@ From Story 2.2 (Session Tracking):
 - Session is iterable and supports `__getitem__`
 
 From code review patterns:
-- Constructor injection is mandatory per project_context.md
+- Constructor injection is mandatory per project-context.md
 - No inline comments - put comments on line above
 - All assertions are hard (no `if __debug__:`)
 
@@ -412,8 +412,8 @@ Completing this story finishes Epic 2 and unblocks:
 - [Source: docs/architecture.md#Data Flow] - Execution model
 - [Source: docs/epics.md#Story 2.4] - Acceptance criteria
 - [Source: docs/prd.md#FR6, FR7, FR3] - Turn numbering, labeling, logging
-- [Source: docs/project_context.md#Python Conventions] - Code style requirements
-- [Source: docs/project_context.md#Critical Rules] - "Dependency injection via constructor only"
+- [Source: docs/project-context.md#Python Conventions] - Code style requirements
+- [Source: docs/project-context.md#Critical Rules] - "Dependency injection via constructor only"
 - [Source: afk/session.py] - Existing Session class to extend
 - [Source: afk/executor.py] - execute_turn() function to integrate
 - [Source: afk/turn_log.py] - TurnLog for path generation

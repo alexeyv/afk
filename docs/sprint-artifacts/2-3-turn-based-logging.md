@@ -231,7 +231,7 @@ From Story 2.2 (Session Tracking):
 - Update `__init__.py` exports
 
 From code review findings:
-- Follow Python conventions from project_context.md
+- Follow Python conventions from project-context.md
 - No inline comments - put comments on line above
 
 ### Dependencies
@@ -272,7 +272,7 @@ feat: add TurnLog class for log file naming (Story 2.3)
 - [Source: docs/architecture.md#Cross-Cutting Concerns] - Log naming requirement
 - [Source: docs/epics.md#Story 2.3] - Acceptance criteria
 - [Source: docs/prd.md#FR8] - Logs and artifacts named by turn/type
-- [Source: docs/project_context.md#Python Conventions] - Code style requirements
+- [Source: docs/project-context.md#Python Conventions] - Code style requirements
 - [Source: afk/turn.py] - Turn.log_file field already exists
 - [Source: afk/driver.py:47-49] - Driver.run() creates log directories
 - [Source: docs/sprint-artifacts/2-2-session-tracking.md] - Previous story patterns
