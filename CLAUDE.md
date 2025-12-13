@@ -1,1 +1,1 @@
-Read docs/project_context.md
+Read docs/project-context.md
