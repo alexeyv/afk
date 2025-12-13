@@ -170,7 +170,7 @@ Use holistic judgment, not mechanical keyword matching.</action>
 
 </step>
 
-<step n="4" goal="Verify and complete">
+<step n="4" goal="Verify and transition to review">
 
 <action>Verify: all tasks [x], tests passing, AC satisfied, patterns followed</action>
 
@@ -185,17 +185,98 @@ Use holistic judgment, not mechanical keyword matching.</action>
 **Tests:** {{test_summary}}
 **AC Status:** {{ac_status}}
 
----
-
-**Before committing (Recommended): Copy this code review prompt to a different LLM**
-
-```
-You are a cynical, jaded code reviewer with zero patience for sloppy work. These uncommitted changes were submitted by a clueless weasel and you expect to find problems. Find at least five issues to fix or improve in it. Number them. Be skeptical of everything.
-```
-
+Running adversarial code review...
 </output>
 
-<action>You must explain what was implemented based on {user_skill_level}</action>
+<action>Proceed immediately to step 5 - NO USER PROMPT</action>
+
+</step>
+
+<step n="5" goal="Adversarial code review (automatic)">
+
+<!-- EXECUTE AUTOMATICALLY - No user prompt until findings are ready -->
+
+<action>Construct diff of implementation changes:
+  - Uncommitted changes: `git diff` + `git diff --cached`
+  - Set {{review_target}} = combined diff output
+</action>
+
+<!-- Execution hierarchy: cleanest context first -->
+<check if="can spawn subagent (Task tool available)">
+  <action>Launch subagent to conduct adversarial code review of {{review_target}}</action>
+  <action>Subagent prompt: "Review this diff as a cynical, skeptical code reviewer. Find at least 5-10 issues - bugs, missing error handling, security concerns, performance issues, style problems. Be suspicious of everything. Number each finding."</action>
+</check>
+
+<check if="no subagent BUT can invoke separate CLI process">
+  <action>Execute adversarial review via CLI (`claude --print`) in fresh context</action>
+</check>
+
+<check if="inline fallback (no subagent, no CLI)">
+  <action>Conduct adversarial review inline. Prompt self: "Switch to cynical reviewer mode. Find at least 10 issues in this diff. Number them. Be skeptical."</action>
+</check>
+
+<action>Collect numbered findings into {{review_findings}}</action>
+
+<!-- SANITY CHECK: Review should NEVER return empty -->
+<check if="{{review_findings}} is empty or contains no numbered items">
+  <output>**⚠️ ADVERSARIAL REVIEW FAILED**
+
+🚨 Zero findings returned. This should never happen - the review is designed to always find something.
+
+Run `/bmad:bmm:workflows:code-review` manually.
+  </output>
+  <action>HALT</action>
+</check>
+
+<action>Process each finding:
+  1. Assign ID: F1, F2, F3...
+  2. Assign severity: 🔴 (critical) 🟠 (significant) 🟡 (minor) 🟢 (trivial)
+  3. Classify: "real", "noise", or uncertainty type with "?" (e.g., "style?", "context?")
+  4. Sort by severity (🔴 first)
+</action>
+
+<output>**🔥 ADVERSARIAL CODE REVIEW FINDINGS**
+
+| ID | Finding | | Class |
+|----|---------|:-:|-------|
+{{findings_table}}
+
+**Summary:** {{real_count}} real, {{uncertain_count}} uncertain, {{noise_count}} noise
+</output>
+
+<action>Create a todo for each finding (F1, F2, F3...)</action>
+
+<ask>How would you like to handle these findings?
+
+1. **Walk through together** - Go through each finding one by one (recommended)
+2. **Auto-fix real issues** - Fix all "real" 🔴/🟠 findings automatically
+3. **Skip all** - Proceed without changes
+
+Choose [1], [2], or [3]:</ask>
+
+<check if="user chooses 1 (walk through)">
+  <action>For each finding in severity order:
+    1. Mark todo in-progress
+    2. Explain: what, where, why it matters, suggested fix
+    3. Ask: fix / skip / discuss
+    4. Handle response, mark todo completed
+    5. Next finding
+  </action>
+</check>
+
+<check if="user chooses 2 (auto-fix)">
+  <action>Fix all "real" 🔴/🟠 findings automatically</action>
+  <action>Run tests to verify fixes don't break anything</action>
+  <action>Mark todos completed</action>
+</check>
+
+<check if="user chooses 3 (skip)">
+  <action>Mark all todos completed (skipped)</action>
+</check>
+
+<output>**Review complete.** Ready to commit.</output>
+
+<action>Explain what was implemented based on {user_skill_level}</action>
 
 </step>
 
