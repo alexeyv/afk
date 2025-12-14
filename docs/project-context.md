@@ -29,8 +29,8 @@ afk is a **state machine executor**, not a loop orchestrator. The framework exec
 ### Version Control
 
 **Note:** Dev agent ignores non-coding-style rules from this file. Git/commit rules live in:
-- `.bmad/_cfg/agents/bmm-dev.customize.yaml` — commit per task
-- `.bmad/_cfg/agents/bmm-sm.customize.yaml` — commit per workflow
+- `_bmad/_cfg/agents/bmm-dev.customize.yaml` — commit per task
+- `_bmad/_cfg/agents/bmm-sm.customize.yaml` — commit per workflow
 
 ### Commit Message Schema
 
