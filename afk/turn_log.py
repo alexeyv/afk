@@ -18,18 +18,18 @@ class TurnLog:
     Args:
         turn_number: The turn number (1-99999).
         transition_type: The type of transition (e.g., "init", "coding").
-        log_dir: Directory where log files are stored.
+        session_root: Session root directory. Logs go in session_root/logs/.
 
     Example:
-        >>> log = TurnLog(3, TransitionType("coding"), Path("/logs"))
+        >>> log = TurnLog(3, TransitionType("coding"), Path("/session"))
         >>> log.filename
         'turn-00003-coding.log'
         >>> log.path
-        Path('/logs/turn-00003-coding.log')
+        Path('/session/logs/turn-00003-coding.log')
     """
 
     def __init__(
-        self, turn_number: int, transition_type: TransitionType, log_dir: Path
+        self, turn_number: int, transition_type: TransitionType, session_root: Path
     ) -> None:
         if not 1 <= turn_number <= 99999:
             raise ValueError(
@@ -37,9 +37,11 @@ class TurnLog:
             )
         if not isinstance(transition_type, TransitionType):
             raise TypeError(f"expected TransitionType, got {transition_type!r}")
+        if not isinstance(session_root, Path):
+            raise TypeError(f"expected Path, got {session_root!r}")
         self._turn_number = turn_number
         self._transition_type = transition_type
-        self._log_dir = log_dir
+        self._session_root = session_root
 
     @property
     def filename(self) -> str:
@@ -47,9 +49,14 @@ class TurnLog:
         return f"turn-{self._turn_number:05d}-{self._transition_type}.log"
 
     @property
+    def log_dir(self) -> Path:
+        """Return the log directory (session_root/logs)."""
+        return self._session_root / "logs"
+
+    @property
     def path(self) -> Path:
         """Return the absolute path to the log file."""
-        return (self._log_dir / self.filename).absolute()
+        return (self.log_dir / self.filename).absolute()
 
     def __repr__(self) -> str:
-        return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._log_dir!r})"
+        return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._session_root!r})"

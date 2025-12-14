@@ -63,10 +63,10 @@ class TestTurnLogFilename:
 class TestTurnLogPath:
     """Tests for TurnLog.path property."""
 
-    def test_combines_directory_and_filename(self, tmp_path: Path) -> None:
-        """Path combines log_dir and filename correctly."""
+    def test_combines_session_root_logs_and_filename(self, tmp_path: Path) -> None:
+        """Path combines session_root/logs and filename correctly."""
         log = TurnLog(3, TransitionType("coding"), tmp_path)
-        expected = tmp_path / "turn-00003-coding.log"
+        expected = tmp_path / "logs" / "turn-00003-coding.log"
         assert log.path == expected
 
     def test_returns_absolute_path(self, tmp_path: Path) -> None:
@@ -74,13 +74,18 @@ class TestTurnLogPath:
         log = TurnLog(1, TransitionType("init"), tmp_path)
         assert log.path.is_absolute()
 
-    def test_path_with_nested_directory(self, tmp_path: Path) -> None:
-        """Path works with nested directory structures."""
-        nested = tmp_path / "runs" / "session-001" / "logs"
-        nested.mkdir(parents=True)
-        log = TurnLog(5, TransitionType("review"), nested)
-        assert log.path == nested / "turn-00005-review.log"
+    def test_path_with_nested_session_root(self, tmp_path: Path) -> None:
+        """Path works with nested session root structures."""
+        session_root = tmp_path / "runs" / "session-001"
+        session_root.mkdir(parents=True)
+        log = TurnLog(5, TransitionType("review"), session_root)
+        assert log.path == session_root / "logs" / "turn-00005-review.log"
         assert log.path.is_absolute()
+
+    def test_log_dir_returns_session_root_plus_logs(self, tmp_path: Path) -> None:
+        """log_dir property returns session_root/logs."""
+        log = TurnLog(1, TransitionType("init"), tmp_path)
+        assert log.log_dir == tmp_path / "logs"
 
 
 class TestTurnLogRepr:
@@ -152,3 +157,8 @@ class TestTurnLogValidation:
         """String transition type raises TypeError."""
         with pytest.raises(TypeError, match="expected TransitionType, got 'coding'"):
             TurnLog(1, "coding", tmp_path)  # type: ignore[arg-type]
+
+    def test_rejects_string_session_root(self) -> None:
+        """String session_root raises TypeError."""
+        with pytest.raises(TypeError, match="expected Path"):
+            TurnLog(1, TransitionType("coding"), "/tmp")  # type: ignore[arg-type]

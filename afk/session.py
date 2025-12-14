@@ -56,7 +56,7 @@ class Session:
         a commit. Exceptions propagate without recording a Turn.
         """
         turn_number = Turn.next_turn_number()
-        turn_log = TurnLog(turn_number, transition_type, self.log_dir)
+        turn_log = TurnLog(turn_number, transition_type, self.root_dir)
         timestamp = datetime.now(timezone.utc)
 
         result = executor_execute_turn(self._driver, prompt, str(turn_log.path))

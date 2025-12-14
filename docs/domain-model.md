@@ -37,8 +37,9 @@ classDiagram
         <<value object>>
         -str _value
         +__str__() str
-        +__eq__()
-        +__hash__()
+        +__repr__() str
+        +__eq__() bool
+        +__hash__() int
     }
 
     class Turn {
@@ -48,15 +49,17 @@ classDiagram
         +TurnResult result
         +Path log_file
         +datetime timestamp
-        +next_turn_number()$ int
+        +next_turn_number(resume_from)$ int
         +reset_turn_counter()$
+        +MAX_TURN_NUMBER$ int
     }
 
     class TurnLog {
         -int _turn_number
         -TransitionType _transition_type
-        -Path _log_dir
+        -Path _session_root
         +filename str
+        +log_dir Path
         +path Path
     }
 
@@ -66,10 +69,13 @@ classDiagram
         -list~Turn~ _turns
         +root_dir Path
         +log_dir Path
+        +turns tuple~Turn~
         +execute_turn(prompt, type) Turn
         +add_turn(turn)
         +turn(n) Turn
-        +turns tuple
+        +__iter__() Iterator~Turn~
+        +__len__() int
+        +__getitem__(n) Turn
     }
 
     class execute_turn {
@@ -114,7 +120,7 @@ classDiagram
 | **TurnResult** | Outcome of a single turn - outcome, message, commit hash | Yes (frozen) |
 | **TransitionType** | Validated state label (e.g., "init", "coding") | Yes (value object) |
 | **Turn** | Complete record of one execution - number, type, result, log | Yes (frozen) |
-| **TurnLog** | Generates log file paths from turn number and type | No |
+| **TurnLog** | Generates log file paths from turn number, type, and session root | No |
 | **Session** | Orchestrates turns, owns driver and turn history | No |
 
 ### Function
@@ -127,18 +133,31 @@ classDiagram
 
 ```
 Session.execute_turn(prompt, type)
-    │
-    ├─► TurnLog(number, type, log_dir)  // determine log path
-    │
-    ├─► execute_turn(driver, prompt, log_file)
-    │       │
-    │       ├─► Git.head_commit()  // before
-    │       ├─► Driver.run()       // execute
-    │       ├─► Git.commits_between()
-    │       ├─► Git.parse_commit_message()
-    │       └─► return TurnResult
-    │
-    └─► Turn(number, type, result, log, timestamp)
-            │
-            └─► added to Session._turns
+    |
+    +-> Turn.next_turn_number()        // get next number
+    |
+    +-> TurnLog(number, type, root)    // determine log path
+    |
+    +-> execute_turn(driver, prompt, log_file)
+    |       |
+    |       +-> Git.head_commit()      // before
+    |       +-> Driver.run()           // execute
+    |       +-> Git.commits_between()
+    |       +-> Git.parse_commit_message()
+    |       +-> return TurnResult
+    |
+    +-> Turn(number, type, result, log, timestamp)
+            |
+            +-> added to Session._turns
 ```
+
+## Validation Summary
+
+| Entity | Validates At |
+|--------|-------------|
+| **TransitionType** | Construction: pattern `^[a-z][a-z0-9_.-]*$` |
+| **TurnResult** | Construction: types of all fields |
+| **Turn** | Construction: number range 1-99999, timezone-aware timestamp, absolute log path |
+| **TurnLog** | Construction: number range, type, Path for session_root |
+| **Session** | Construction: absolute directory path, valid Driver |
+| **execute_turn** | Runtime: exactly one commit, zero exit code, ancestry path |
