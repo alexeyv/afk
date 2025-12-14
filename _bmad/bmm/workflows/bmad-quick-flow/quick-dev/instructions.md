@@ -15,6 +15,8 @@
 
 <step n="1" goal="Load project context and determine execution mode">
 
+<action>Record current HEAD as baseline for later review. Run `git rev-parse HEAD` and store the result as {baseline_commit}.</action>
+
 <action>Check if {project_context} exists. If yes, load it - this is your foundational reference for ALL implementation decisions (patterns, conventions, architecture).</action>
 
 <action>Parse user input:
@@ -188,93 +190,84 @@ Use holistic judgment, not mechanical keyword matching.</action>
 Running adversarial code review...
 </output>
 
-<action>Proceed immediately to step 5 - NO USER PROMPT</action>
+<action>Proceed immediately to step 5</action>
 
 </step>
 
 <step n="5" goal="Adversarial code review (automatic)">
 
-<!-- EXECUTE AUTOMATICALLY - No user prompt until findings are ready -->
+<action>Construct diff of all changes since workflow started and capture as {diff_output}:
 
-<action>Construct diff of implementation changes:
-  - Uncommitted changes: `git diff` + `git diff --cached`
-  - Set {{review_target}} = combined diff output
-</action>
+**Tracked file changes:**
 
-<!-- Execution hierarchy: cleanest context first -->
-<check if="can spawn subagent (Task tool available)">
-  <action>Launch subagent to conduct adversarial code review of {{review_target}}</action>
-  <action>Subagent prompt: "Review this diff as a cynical, skeptical code reviewer. Find at least 5-10 issues - bugs, missing error handling, security concerns, performance issues, style problems. Be suspicious of everything. Number each finding."</action>
+```bash
+git diff {baseline_commit}
+```
+
+**New files created by this workflow:**
+Only include untracked files that YOU actually created during steps 2-4. Do not include pre-existing untracked files. For each new file you created, include its full content as a "new file" addition.
+
+Combine both into {diff_output} for review. Do NOT `git add` anything - this is read-only inspection.</action>
+
+<action>Execute adversarial review using this hierarchy (try in order until one succeeds):
+
+1. **Spawn subagent** (preferred) - pass the diff output along with this prompt:
+
+   ```
+   You are a cynical, jaded code reviewer with zero patience for sloppy work. This diff was submitted by a clueless weasel and you expect to find problems. Find at least five issues to fix or improve. Number them. Be skeptical of everything.
+
+   <diff>
+   {diff_output}
+   </diff>
+   ```
+
+2. **CLI fallback** - pipe diff to `claude --print` with same prompt
+
+3. **Inline self-review** - Review the diff output yourself using the cynical reviewer persona above
+   </action>
+
+<check if="zero findings returned">
+  <action>HALT - Zero findings is suspicious. Adversarial review should always find something. Request user guidance.</action>
 </check>
 
-<check if="no subagent BUT can invoke separate CLI process">
-  <action>Execute adversarial review via CLI (`claude --print`) in fresh context</action>
-</check>
+<action>Process findings:
 
-<check if="inline fallback (no subagent, no CLI)">
-  <action>Conduct adversarial review inline. Prompt self: "Switch to cynical reviewer mode. Find at least 10 issues in this diff. Number them. Be skeptical."</action>
-</check>
+- Assign IDs: F1, F2, F3...
+- Assign severity: 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low
+- Classify each: **real** (confirmed issue) | **noise** (false positive) | **uncertain** (needs discussion)
+  </action>
 
-<action>Collect numbered findings into {{review_findings}}</action>
+<output>**Adversarial Review Findings**
 
-<!-- SANITY CHECK: Review should NEVER return empty -->
-<check if="{{review_findings}} is empty or contains no numbered items">
-  <output>**⚠️ ADVERSARIAL REVIEW FAILED**
+| ID  | Severity | Classification | Finding |
+| --- | -------- | -------------- | ------- |
+| F1  | 🟠       | real           | ...     |
+| F2  | 🟡       | noise          | ...     |
+| ... |
 
-🚨 Zero findings returned. This should never happen - the review is designed to always find something.
-
-Run `/bmad:bmm:workflows:code-review` manually.
-  </output>
-  <action>HALT</action>
-</check>
-
-<action>Process each finding:
-  1. Assign ID: F1, F2, F3...
-  2. Assign severity: 🔴 (critical) 🟠 (significant) 🟡 (minor) 🟢 (trivial)
-  3. Classify: "real", "noise", or uncertainty type with "?" (e.g., "style?", "context?")
-  4. Sort by severity (🔴 first)
-</action>
-
-<output>**🔥 ADVERSARIAL CODE REVIEW FINDINGS**
-
-| ID | Finding | | Class |
-|----|---------|:-:|-------|
-{{findings_table}}
-
-**Summary:** {{real_count}} real, {{uncertain_count}} uncertain, {{noise_count}} noise
 </output>
-
-<action>Create a todo for each finding (F1, F2, F3...)</action>
 
 <ask>How would you like to handle these findings?
 
-1. **Walk through together** - Go through each finding one by one (recommended)
-2. **Auto-fix real issues** - Fix all "real" 🔴/🟠 findings automatically
-3. **Skip all** - Proceed without changes
+**[1] Walk through** - Discuss each finding individually
+**[2] Auto-fix** - Automatically fix issues classified as "real"
+**[3] Skip** - Acknowledge and proceed to commit</ask>
 
-Choose [1], [2], or [3]:</ask>
-
-<check if="user chooses 1 (walk through)">
-  <action>For each finding in severity order:
-    1. Mark todo in-progress
-    2. Explain: what, where, why it matters, suggested fix
-    3. Ask: fix / skip / discuss
-    4. Handle response, mark todo completed
-    5. Next finding
-  </action>
+<check if="1">
+  <action>Present each finding one by one. For each, ask: fix now / skip / discuss</action>
+  <action>Apply fixes as approved</action>
 </check>
 
-<check if="user chooses 2 (auto-fix)">
-  <action>Fix all "real" 🔴/🟠 findings automatically</action>
-  <action>Run tests to verify fixes don't break anything</action>
-  <action>Mark todos completed</action>
+<check if="2">
+  <action>Automatically fix all findings classified as "real"</action>
+  <action>Report what was fixed</action>
 </check>
 
-<check if="user chooses 3 (skip)">
-  <action>Mark all todos completed (skipped)</action>
+<check if="3">
+  <action>Acknowledge findings were reviewed and user chose to skip</action>
 </check>
 
-<output>**Review complete.** Ready to commit.</output>
+<output>**Review complete. Ready to commit.**</output>
 
 <action>Explain what was implemented based on {user_skill_level}</action>
 

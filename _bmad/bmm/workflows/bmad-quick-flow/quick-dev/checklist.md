@@ -26,7 +26,7 @@
 
 ## Adversarial Review
 
-- [ ] Diff constructed (uncommitted changes)
+- [ ] Diff constructed (tracked changes from {baseline_commit} + new untracked files)
 - [ ] Adversarial review executed (subagent preferred)
 - [ ] Findings presented with severity and classification
 - [ ] User chose handling approach (walk through / auto-fix / skip)
