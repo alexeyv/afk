@@ -427,3 +427,46 @@ class TestSessionExecuteTurn:
             )
 
         assert len(execute_session_no_commit) == 0
+
+
+class TestSessionLogging:
+    """Tests for Session turn lifecycle logging."""
+
+    def test_successful_turn_logs_start_and_end(self, execute_session: Session) -> None:
+        """Successful execute_turn logs start and end markers with outcome."""
+        turn = execute_session.execute_turn("test prompt", TransitionType("init"))
+
+        log_content = turn.log_file.read_text()
+        assert "=== Turn 1 START ===" in log_content
+        assert "=== Turn 1 END: success ===" in log_content
+
+    def test_failed_turn_logs_start_and_abort(
+        self, execute_session_no_commit: Session
+    ) -> None:
+        """Failed execute_turn logs start and abort with traceback."""
+        log_file = execute_session_no_commit.log_dir / "turn-00001-init.log"
+
+        with pytest.raises(RuntimeError, match="No commit"):
+            execute_session_no_commit.execute_turn(
+                "test prompt", TransitionType("init")
+            )
+
+        log_content = log_file.read_text()
+        assert "=== Turn 1 START ===" in log_content
+        assert "=== Turn 1 ABORT: RuntimeError ===" in log_content
+        assert "No commit" in log_content
+
+    def test_multiple_turns_log_incrementing_numbers(
+        self, execute_session: Session
+    ) -> None:
+        """Multiple successful turns log with correct turn numbers."""
+        turn1 = execute_session.execute_turn("prompt 1", TransitionType("init"))
+        turn2 = execute_session.execute_turn("prompt 2", TransitionType("coding"))
+
+        log1_content = turn1.log_file.read_text()
+        log2_content = turn2.log_file.read_text()
+
+        assert "=== Turn 1 START ===" in log1_content
+        assert "=== Turn 1 END: success ===" in log1_content
+        assert "=== Turn 2 START ===" in log2_content
+        assert "=== Turn 2 END: success ===" in log2_content

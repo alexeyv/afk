@@ -10,10 +10,10 @@ from afk.transition_type import TransitionType
 
 
 class TurnLog:
-    """Log file naming for a specific turn.
+    """Log file for a specific turn.
 
-    Generates log file names following the pattern turn-{NNNNN}-{type}.log
-    where NNNNN is a zero-padded 5-digit turn number.
+    Creates a fresh log file at instantiation with a START marker.
+    Subsequent log() calls append to the file.
 
     Args:
         turn_number: The turn number (1-99999).
@@ -42,6 +42,13 @@ class TurnLog:
         self._turn_number = turn_number
         self._transition_type = transition_type
         self._session_root = session_root
+        self._init_log_file()
+
+    def _init_log_file(self) -> None:
+        """Create fresh log file with START marker."""
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "w") as f:
+            f.write(f"=== Turn {self._turn_number} START ===\n")
 
     @property
     def filename(self) -> str:
@@ -57,6 +64,12 @@ class TurnLog:
     def path(self) -> Path:
         """Return the absolute path to the log file."""
         return (self.log_dir / self.filename).absolute()
+
+    def log(self, message: str) -> None:
+        """Append a message to the log file, creating the log directory if needed."""
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "a") as f:
+            f.write(message + "\n")
 
     def __repr__(self) -> str:
         return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._session_root!r})"

@@ -90,7 +90,7 @@ class Driver:
         claude_cmd.append(prompt)
 
         if sys.platform == "darwin":
-            return ["script", "-q", log_file] + claude_cmd
+            return ["script", "-a", "-q", log_file] + claude_cmd
         else:
             cmd_str = " ".join(shlex.quote(arg) for arg in claude_cmd)
-            return ["script", "-q", "-c", cmd_str, log_file]
+            return ["script", "-a", "-q", "-c", cmd_str, log_file]

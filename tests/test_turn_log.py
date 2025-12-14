@@ -162,3 +162,78 @@ class TestTurnLogValidation:
         """String session_root raises TypeError."""
         with pytest.raises(TypeError, match="expected Path"):
             TurnLog(1, TransitionType("coding"), "/tmp")  # type: ignore[arg-type]
+
+
+class TestTurnLogInit:
+    """Tests for TurnLog initialization behavior."""
+
+    def test_init_creates_log_directory(self, tmp_path: Path) -> None:
+        """TurnLog creates log directory at instantiation."""
+        assert not (tmp_path / "logs").exists()
+
+        TurnLog(1, TransitionType("coding"), tmp_path)
+
+        assert (tmp_path / "logs").exists()
+        assert (tmp_path / "logs").is_dir()
+
+    def test_init_creates_log_file_with_start_marker(self, tmp_path: Path) -> None:
+        """TurnLog creates log file with START marker at instantiation."""
+        log = TurnLog(1, TransitionType("coding"), tmp_path)
+
+        content = log.path.read_text()
+        assert content == "=== Turn 1 START ===\n"
+
+    def test_init_overwrites_existing_log_file(self, tmp_path: Path) -> None:
+        """TurnLog overwrites any pre-existing log file for this turn."""
+        logs_dir = tmp_path / "logs"
+        logs_dir.mkdir()
+        existing_log = logs_dir / "turn-00001-coding.log"
+        existing_log.write_text("old content\n")
+
+        log = TurnLog(1, TransitionType("coding"), tmp_path)
+
+        content = log.path.read_text()
+        assert content == "=== Turn 1 START ===\n"
+        assert "old content" not in content
+
+
+class TestTurnLogLog:
+    """Tests for TurnLog.log() method."""
+
+    def test_log_appends_after_start_marker(self, tmp_path: Path) -> None:
+        """log() appends message after the START marker."""
+        log = TurnLog(1, TransitionType("coding"), tmp_path)
+
+        log.log("hello world")
+
+        content = log.path.read_text()
+        assert content == "=== Turn 1 START ===\nhello world\n"
+
+    def test_log_multiple_calls_append_in_order(self, tmp_path: Path) -> None:
+        """Multiple log() calls append messages in order."""
+        log = TurnLog(1, TransitionType("coding"), tmp_path)
+
+        log.log("first")
+        log.log("second")
+        log.log("third")
+
+        content = log.path.read_text()
+        assert content == "=== Turn 1 START ===\nfirst\nsecond\nthird\n"
+
+    def test_log_handles_empty_message(self, tmp_path: Path) -> None:
+        """log() handles empty string message."""
+        log = TurnLog(1, TransitionType("coding"), tmp_path)
+
+        log.log("")
+
+        content = log.path.read_text()
+        assert content == "=== Turn 1 START ===\n\n"
+
+    def test_log_handles_multiline_message(self, tmp_path: Path) -> None:
+        """log() handles messages containing newlines."""
+        log = TurnLog(1, TransitionType("coding"), tmp_path)
+
+        log.log("line1\nline2\nline3")
+
+        content = log.path.read_text()
+        assert content == "=== Turn 1 START ===\nline1\nline2\nline3\n"

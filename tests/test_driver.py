@@ -89,28 +89,30 @@ class TestDriverBuildCommand:
         driver = Driver(git_repo)
         cmd = driver._build_command("my prompt", "/path/to/log.txt")  # pyright: ignore[reportPrivateUsage]
 
-        # macOS: script -q <logfile> claude --print <prompt>
+        # macOS: script -a -q <logfile> claude --print <prompt>
         assert cmd[0] == "script"
-        assert cmd[1] == "-q"
-        assert cmd[2] == "/path/to/log.txt"
-        assert cmd[3] == "claude"
-        assert cmd[4] == "--print"
-        assert cmd[5] == "my prompt"
+        assert cmd[1] == "-a"
+        assert cmd[2] == "-q"
+        assert cmd[3] == "/path/to/log.txt"
+        assert cmd[4] == "claude"
+        assert cmd[5] == "--print"
+        assert cmd[6] == "my prompt"
 
     @pytest.mark.skipif(sys.platform == "darwin", reason="Linux-specific test")
     def test_linux_command_format(self, git_repo: Git):
         driver = Driver(git_repo)
         cmd = driver._build_command("my prompt", "/path/to/log.txt")  # pyright: ignore[reportPrivateUsage]
 
-        # Linux: script -q -c "<command>" <logfile>
+        # Linux: script -a -q -c "<command>" <logfile>
         assert cmd[0] == "script"
-        assert cmd[1] == "-q"
-        assert cmd[2] == "-c"
+        assert cmd[1] == "-a"
+        assert cmd[2] == "-q"
+        assert cmd[3] == "-c"
         assert (
-            "claude --print 'my prompt'" in cmd[3]
-            or "claude --print my prompt" in cmd[3]
+            "claude --print 'my prompt'" in cmd[4]
+            or "claude --print my prompt" in cmd[4]
         )
-        assert cmd[4] == "/path/to/log.txt"
+        assert cmd[5] == "/path/to/log.txt"
 
     @pytest.mark.skipif(sys.platform == "darwin", reason="Linux-specific test")
     def test_linux_command_escapes_shell_metacharacters(self, git_repo: Git):

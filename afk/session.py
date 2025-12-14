@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
@@ -54,12 +55,25 @@ class Session:
         Creates the next sequential turn, executes via Driver, and adds
         to session. Only records a Turn if execution succeeds and produces
         a commit. Exceptions propagate without recording a Turn.
+
+        Logs turn lifecycle events to the turn log file.
         """
         turn_number = Turn.next_turn_number()
         turn_log = TurnLog(turn_number, transition_type, self.root_dir)
         timestamp = datetime.now(timezone.utc)
 
-        result = executor_execute_turn(self._driver, prompt, str(turn_log.path))
+        try:
+            result = executor_execute_turn(self._driver, prompt, str(turn_log.path))
+        except Exception as e:
+            try:
+                turn_log.log(
+                    f"=== Turn {turn_number} ABORT: {type(e).__name__} ===\n{e}\n{traceback.format_exc()}"
+                )
+            except Exception:
+                pass
+            raise
+
+        turn_log.log(f"=== Turn {turn_number} END: {result.outcome} ===")
         turn = Turn(
             turn_number=turn_number,
             transition_type=transition_type,
