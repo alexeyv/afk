@@ -1,9 +1,7 @@
 import signal
 import subprocess
 
-from afk.driver import Driver
 from afk.git import Git
-from afk.turn_result import TurnResult
 
 # Map common signals to human-readable names
 SIGNAL_NAMES: dict[int, str] = {
@@ -123,25 +121,32 @@ This may indicate the agent switched branches or reset HEAD."""
     return RuntimeError(msg)
 
 
-def execute_turn(
-    driver: Driver,
-    prompt: str,
+def validate_turn_execution(
+    git: Git,
+    exit_code: int,
     log_file: str,
-) -> TurnResult:
-    """Execute a single turn: run prompt, detect commit, extract result.
+    head_before: str | None,
+) -> tuple[str | None, str, str]:
+    """Validate turn execution and extract commit info.
 
-    Raises RuntimeError for: zero commits, multiple commits, non-zero exit,
-    signal termination, or CLI unavailability.
+    Called after Turn.execute() to validate the result and extract
+    outcome, commit_hash, and message for Turn.finish().
+
+    Args:
+        git: Git instance for the repository.
+        exit_code: Exit code from driver.run().
+        log_file: Path to the turn log file.
+        head_before: HEAD commit hash captured before execution (None for empty repo).
+
+    Returns:
+        Tuple of (outcome, commit_hash, message).
+
+    Raises:
+        RuntimeError: For zero commits, multiple commits, non-zero exit,
+                      signal termination, or other validation failures.
     """
-    git = driver.git
-
-    # Capture HEAD before execution (may be None for empty repo)
-    head_before = git.head_commit()
-
-    # Execute the prompt via driver
-    exit_code = driver.run(prompt, log_file)
+    # Check exit code first
     if exit_code != 0:
-        # Negative exit code indicates signal termination on Unix
         if exit_code < 0:
             raise _signal_error(-exit_code, log_file)
         raise _nonzero_exit_error(exit_code, log_file)
@@ -168,8 +173,4 @@ def execute_turn(
     # Parse outcome from commit message
     outcome, message = git.parse_commit_message(commit_hash)
 
-    return TurnResult(
-        outcome=outcome,
-        message=message,
-        commit_hash=commit_hash,
-    )
+    return (outcome, commit_hash, message)

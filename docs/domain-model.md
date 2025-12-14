@@ -1,6 +1,6 @@
 # AFK Domain Model
 
-Generated: 2025-12-13
+Generated: 2025-12-14
 
 This diagram shows the core entities of the AFK framework, their attributes, and relationships.
 
@@ -26,11 +26,24 @@ classDiagram
         +run(prompt, log_file) int
     }
 
+    class TurnState {
+        <<enumeration>>
+        INITIAL
+        IN_PROGRESS
+        FINISHED
+        ABORTED
+    }
+
     class TurnResult {
         <<frozen dataclass>>
+        +int turn_number
+        +TransitionType transition_type
         +str|None outcome
         +str message
         +str commit_hash
+        +Path log_file
+        +datetime timestamp
+        +MAX_TURN_NUMBER$ int
     }
 
     class TransitionType {
@@ -43,14 +56,23 @@ classDiagram
     }
 
     class Turn {
-        <<frozen dataclass>>
-        +int turn_number
-        +TransitionType transition_type
-        +TurnResult result
-        +Path log_file
-        +datetime timestamp
+        <<mutable state machine>>
+        -Driver _driver
+        -Path _session_root
+        -int _number
+        -TurnState _state
+        -TurnLog|None _turn_log
+        -str|None _head_before
+        +number int
+        +state TurnState
+        +log_file Path
+        +head_before str|None
+        +start(type) void
+        +execute(prompt, log_file) int
+        +finish(outcome, hash, msg) TurnResult
+        +abort(exception) void
         +next_turn_number(resume_from)$ int
-        +reset_turn_counter()$
+        +reset_turn_counter()$ void
         +MAX_TURN_NUMBER$ int
     }
 
@@ -61,44 +83,48 @@ classDiagram
         +filename str
         +log_dir Path
         +path Path
+        +log(message) void
+        +__repr__() str
     }
 
     class Session {
         -Path _root_dir
         -Driver _driver
-        -list~Turn~ _turns
+        -list~TurnResult~ _history
         +root_dir Path
         +log_dir Path
-        +turns tuple~Turn~
-        +execute_turn(prompt, type) Turn
-        +add_turn(turn)
-        +turn(n) Turn
-        +__iter__() Iterator~Turn~
+        +turns tuple~TurnResult~
+        +execute_turn(prompt, type) TurnResult
+        +add_turn(result)
+        +turn(n) TurnResult
+        +__iter__() Iterator~TurnResult~
         +__len__() int
-        +__getitem__(n) Turn
+        +__getitem__(n) TurnResult
     }
 
-    class execute_turn {
+    class validate_turn_execution {
         <<function>>
-        execute_turn(driver, prompt, log_file) TurnResult
+        validate_turn_execution(git, exit_code, log_file, head_before) tuple
     }
 
     %% Composition (ownership)
     Driver *-- Git : owns
     Session *-- Driver : owns
-    Session *-- Turn : owns 0..*
-    Turn *-- TurnResult : contains
+    Turn *-- TurnLog : creates on start()
+    Turn --> TurnResult : creates on finish()
 
     %% Association (references)
+    Turn --> TurnState : has current
     Turn o-- TransitionType : has
+    TurnResult o-- TransitionType : has
     TurnLog o-- TransitionType : references
+    Session *-- TurnResult : stores 0..*
 
     %% Dependencies (uses)
-    Session ..> TurnLog : uses for paths
-    Session ..> execute_turn : calls
-    execute_turn ..> Driver : invokes run()
-    execute_turn ..> Git : queries commits
-    execute_turn ..> TurnResult : returns
+    Session ..> Turn : creates & orchestrates
+    Session ..> validate_turn_execution : calls
+    Turn ..> Driver : invokes run()
+    validate_turn_execution ..> Git : queries commits
 ```
 
 ## Relationship Legend
@@ -108,6 +134,7 @@ classDiagram
 | `*--` | Composition (owns lifecycle) |
 | `o--` | Association (references) |
 | `..>` | Dependency (uses/calls) |
+| `-->` | Creates (factory relationship) |
 
 ## Entity Descriptions
 
@@ -117,38 +144,95 @@ classDiagram
 |--------|------|-----------|
 | **Git** | Repository operations - queries commits, parses messages | No |
 | **Driver** | Executes prompts via Claude Code CLI with script wrapper | No |
-| **TurnResult** | Outcome of a single turn - outcome, message, commit hash | Yes (frozen) |
+| **TurnState** | Enum of Turn lifecycle states: INITIAL, IN_PROGRESS, FINISHED, ABORTED | Yes (enum) |
+| **TurnResult** | Complete frozen record of a finished turn - all data needed for history | Yes (frozen) |
 | **TransitionType** | Validated state label (e.g., "init", "coding") | Yes (value object) |
-| **Turn** | Complete record of one execution - number, type, result, log | Yes (frozen) |
-| **TurnLog** | Generates log file paths from turn number, type, and session root | No |
-| **Session** | Orchestrates turns, owns driver and turn history | No |
+| **Turn** | Mutable state machine for active turn execution | No (state machine) |
+| **TurnLog** | Manages log file paths and writes turn lifecycle events | No |
+| **Session** | Orchestrates turns, owns driver and stores TurnResult history | No |
 
 ### Function
 
 | Function | Purpose |
 |----------|---------|
-| **execute_turn** | Core execution logic - runs driver, detects commits, returns result |
+| **validate_turn_execution** | Post-execution validation - checks exit code, detects commits, returns result tuple |
+
+## Turn State Machine
+
+```
+    +---------+
+    | INITIAL |
+    +---------+
+         |
+         | start(transition_type)
+         | - creates TurnLog
+         | - captures HEAD
+         v
+    +-------------+
+    | IN_PROGRESS |
+    +-------------+
+         |
+    +----+----+
+    |         |
+    | finish()| abort(exception)
+    |         |
+    v         v
++----------+ +----------+
+| FINISHED | | ABORTED  |
++----------+ +----------+
+     |
+     +-> returns TurnResult
+```
 
 ## Lifecycle Flow
 
 ```
 Session.execute_turn(prompt, type)
     |
-    +-> Turn.next_turn_number()        // get next number
-    |
-    +-> TurnLog(number, type, root)    // determine log path
-    |
-    +-> execute_turn(driver, prompt, log_file)
+    +-> Turn(driver, session_root)     // creates in INITIAL state
     |       |
-    |       +-> Git.head_commit()      // before
-    |       +-> Driver.run()           // execute
+    |       +-> allocates turn number
+    |
+    +-> turn.start(transition_type)    // INITIAL -> IN_PROGRESS
+    |       |
+    |       +-> captures HEAD before
+    |       +-> creates TurnLog
+    |       +-> logs START marker
+    |
+    +-> turn.execute(prompt, log_file)
+    |       |
+    |       +-> Driver.run()           // execute prompt
+    |       +-> returns exit code
+    |
+    +-> validate_turn_execution(git, exit_code, log_file, head_before)
+    |       |
+    |       +-> checks exit code
+    |       +-> Git.head_commit()      // after
     |       +-> Git.commits_between()
     |       +-> Git.parse_commit_message()
-    |       +-> return TurnResult
+    |       +-> returns (outcome, commit_hash, message)
     |
-    +-> Turn(number, type, result, log, timestamp)
+    +-> turn.finish(outcome, hash, msg) // IN_PROGRESS -> FINISHED
+    |       |
+    |       +-> logs END marker
+    |       +-> returns TurnResult
+    |
+    +-> Session._add_result(result)    // stores in history
+```
+
+### On Error
+
+```
+Session.execute_turn(prompt, type)
+    |
+    +-> Turn(...), start(...), execute(...)
+    |
+    +-> exception raised
+    |
+    +-> turn.abort(exception)          // IN_PROGRESS -> ABORTED
             |
-            +-> added to Session._turns
+            +-> logs ABORT marker with traceback
+            +-> re-raises exception
 ```
 
 ## Validation Summary
@@ -156,8 +240,10 @@ Session.execute_turn(prompt, type)
 | Entity | Validates At |
 |--------|-------------|
 | **TransitionType** | Construction: pattern `^[a-z][a-z0-9_.-]*$` |
-| **TurnResult** | Construction: types of all fields |
-| **Turn** | Construction: number range 1-99999, timezone-aware timestamp, absolute log path |
+| **TurnResult** | Construction: number range 1-99999, types, absolute path, timezone-aware timestamp |
+| **Turn** | Construction: Driver type, Path type, absolute path |
+| **Turn.start()** | TransitionType type |
+| **Turn.execute/finish/abort()** | State is IN_PROGRESS |
 | **TurnLog** | Construction: number range, type, Path for session_root |
 | **Session** | Construction: absolute directory path, valid Driver |
-| **execute_turn** | Runtime: exactly one commit, zero exit code, ancestry path |
+| **validate_turn_execution** | Runtime: exactly one commit, zero exit code, ancestry path |

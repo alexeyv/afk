@@ -1,14 +1,36 @@
-from dataclasses import dataclass
+import traceback
 from datetime import datetime, timezone
+from enum import Enum, auto
 from pathlib import Path
 from typing import ClassVar
 
+from afk.driver import Driver
 from afk.transition_type import TransitionType
+from afk.turn_log import TurnLog
 from afk.turn_result import TurnResult
 
 
-@dataclass(frozen=True)
+class TurnState(Enum):
+    """States of a Turn in its lifecycle."""
+
+    INITIAL = auto()
+    IN_PROGRESS = auto()
+    FINISHED = auto()
+    ABORTED = auto()
+
+
 class Turn:
+    """Mutable state machine representing an active turn.
+
+    Lifecycle:
+        Initial -> InProgress (via start())
+        InProgress -> Finished (via finish())
+        InProgress -> Aborted (via abort())
+
+    The Turn owns its lifecycle and logging. Session creates a Turn,
+    calls start(), execute(), then finish() or abort().
+    """
+
     MAX_TURN_NUMBER: ClassVar[int] = 100_000
     _next_number: ClassVar[int] = 1
 
@@ -39,35 +61,171 @@ class Turn:
         """Reset turn counter to 1 (for testing)."""
         cls._next_number = 1
 
-    turn_number: int
-    transition_type: TransitionType
-    result: TurnResult
-    log_file: Path
-    timestamp: datetime
+    def __init__(self, driver: Driver, session_root: Path) -> None:
+        """Create a new Turn in Initial state.
 
-    def __post_init__(self) -> None:
-        if self.turn_number < 1:
-            raise ValueError("turn_number must be >= 1")
-        if self.turn_number >= self.MAX_TURN_NUMBER:
-            raise ValueError(f"turn_number must be < {self.MAX_TURN_NUMBER}")
+        Args:
+            driver: The Driver to use for execution.
+            session_root: Session root directory for logging.
+        """
+        if not isinstance(driver, Driver):
+            raise TypeError(f"expected Driver, got {driver!r}")
+        if not isinstance(session_root, Path):
+            raise TypeError(f"expected Path, got {session_root!r}")
+        if not session_root.is_absolute():
+            raise ValueError("session_root must be an absolute path")
 
-        if not isinstance(self.transition_type, TransitionType):
-            raise TypeError(f"expected TransitionType, got {self.transition_type!r}")
+        self._driver = driver
+        self._session_root = session_root
+        self._number: int | None = None  # Allocated in start() to prevent leaks
+        self._state = TurnState.INITIAL
+        self._turn_log: TurnLog | None = None
+        self._transition_type: TransitionType | None = None
+        self._timestamp: datetime | None = None
+        self._head_before: str | None = None
 
-        if not isinstance(self.result, TurnResult):
-            raise TypeError(f"expected TurnResult, got {self.result!r}")
+    @property
+    def number(self) -> int:
+        """Return the turn number. Raises if not started."""
+        if self._number is None:
+            raise RuntimeError(
+                f"Cannot get number: Turn is in {self._state.name} state, expected IN_PROGRESS or later"
+            )
+        return self._number
 
-        raw_log_file = str(self.log_file).strip()
-        if not raw_log_file:
-            raise ValueError("log_file must be a non-empty path")
-        log_path = Path(raw_log_file).expanduser()
-        if not log_path.is_absolute():
-            raise ValueError("log_file must be an absolute path")
-        object.__setattr__(self, "log_file", log_path)
+    @property
+    def state(self) -> TurnState:
+        """Return the current state."""
+        return self._state
 
-        if (
-            self.timestamp.tzinfo is None
-            or self.timestamp.tzinfo.utcoffset(self.timestamp) is None
-        ):
-            raise ValueError("timestamp must be timezone-aware")
-        object.__setattr__(self, "timestamp", self.timestamp.astimezone(timezone.utc))
+    @property
+    def log_file(self) -> Path:
+        """Return the log file path. Raises if not started."""
+        if self._turn_log is None:
+            raise RuntimeError(
+                f"Cannot get log_file: Turn is in {self._state.name} state, expected IN_PROGRESS or later"
+            )
+        return self._turn_log.path
+
+    @property
+    def head_before(self) -> str | None:
+        """Return HEAD commit hash captured at start(). None for empty repo."""
+        return self._head_before
+
+    def start(self, transition_type: TransitionType) -> None:
+        """Transition from Initial to InProgress.
+
+        Creates the TurnLog and writes START marker.
+
+        Args:
+            transition_type: The type of transition for this turn.
+
+        Raises:
+            RuntimeError: If not in Initial state.
+            TypeError: If transition_type is not a TransitionType.
+        """
+        if self._state != TurnState.INITIAL:
+            raise RuntimeError(
+                f"Cannot start: Turn is in {self._state.name} state, expected INITIAL"
+            )
+        if not isinstance(transition_type, TransitionType):
+            raise TypeError(f"expected TransitionType, got {transition_type!r}")
+
+        self._number = self.next_turn_number()  # Allocate here to prevent leaks
+        self._transition_type = transition_type
+        self._timestamp = datetime.now(timezone.utc)
+        self._head_before = self._driver.git.head_commit()
+        self._turn_log = TurnLog(self._number, transition_type, self._session_root)
+        self._state = TurnState.IN_PROGRESS
+
+    def execute(self, prompt: str) -> int:
+        """Execute the turn via the driver.
+
+        Requires InProgress state. Uses the log file created during start().
+
+        Args:
+            prompt: The prompt to send to the driver.
+
+        Returns:
+            Exit code from the driver.
+
+        Raises:
+            RuntimeError: If not in InProgress state.
+        """
+        if self._state != TurnState.IN_PROGRESS:
+            raise RuntimeError(
+                f"Cannot execute: Turn is in {self._state.name} state, expected IN_PROGRESS"
+            )
+
+        assert self._turn_log is not None
+        return self._driver.run(prompt, str(self._turn_log.path))
+
+    def finish(self, outcome: str | None, commit_hash: str, message: str) -> TurnResult:
+        """Transition from InProgress to Finished.
+
+        Logs END marker and creates frozen TurnResult.
+
+        Args:
+            outcome: The outcome string (e.g., "success", "failure").
+            commit_hash: The git commit hash.
+            message: The commit message.
+
+        Returns:
+            Frozen TurnResult record.
+
+        Raises:
+            RuntimeError: If not in InProgress state.
+        """
+        if self._state != TurnState.IN_PROGRESS:
+            raise RuntimeError(
+                f"Cannot finish: Turn is in {self._state.name} state, expected IN_PROGRESS"
+            )
+
+        assert self._number is not None
+        assert self._turn_log is not None
+        assert self._transition_type is not None
+        assert self._timestamp is not None
+
+        self._turn_log.log(f"=== Turn {self._number} END: {outcome} ===")
+        self._state = TurnState.FINISHED
+
+        return TurnResult(
+            turn_number=self._number,
+            transition_type=self._transition_type,
+            outcome=outcome,
+            message=message,
+            commit_hash=commit_hash,
+            log_file=self._turn_log.path,
+            timestamp=self._timestamp,
+        )
+
+    def abort(self, exception: Exception) -> None:
+        """Transition from InProgress to Aborted.
+
+        Logs ABORT marker with exception details and re-raises.
+
+        Args:
+            exception: The exception that caused the abort.
+
+        Raises:
+            The passed exception after logging.
+        """
+        if self._state != TurnState.IN_PROGRESS:
+            raise RuntimeError(
+                f"Cannot abort: Turn is in {self._state.name} state, expected IN_PROGRESS"
+            )
+
+        if self._turn_log is not None:
+            try:
+                self._turn_log.log(
+                    f"=== Turn {self._number} ABORT: {type(exception).__name__} ===\n"
+                    f"{exception}\n{traceback.format_exc()}"
+                )
+            except Exception:
+                pass
+
+        self._state = TurnState.ABORTED
+        raise exception
+
+    def __repr__(self) -> str:
+        return f"Turn(number={self._number}, state={self._state.name})"

@@ -21,13 +21,15 @@ def reset_turn_counter() -> None:
     Turn.reset_turn_counter()
 
 
-def make_turn(n: int, transition_type: str = "coding") -> Turn:
-    """Helper to create Turn instances for testing."""
-    return Turn(
+def make_result(n: int, transition_type: str = "coding") -> TurnResult:
+    """Helper to create TurnResult instances for testing."""
+    return TurnResult(
         turn_number=n,
         transition_type=TransitionType(transition_type),
-        result=TurnResult(outcome="success", message="test", commit_hash="abc123"),
-        log_file=Path(f"/logs/turn-{n:03d}.log"),
+        outcome="success",
+        message="test",
+        commit_hash="abc123",
+        log_file=Path(f"/logs/turn-{n:05d}-{transition_type}.log"),
         timestamp=FIXED_TIME,
     )
 
@@ -127,37 +129,37 @@ class TestSession:
         assert list(session) == []
 
     def test_add_single_turn(self, session_env: tuple[Path, Driver]) -> None:
-        """AC#1: add_turn adds turn to session."""
+        """AC#1: add_turn adds TurnResult to session."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        turn = make_turn(1, "init")
-        session.add_turn(turn)
-        assert session.turns == (turn,)
+        result = make_result(1, "init")
+        session.add_turn(result)
+        assert session.turns == (result,)
 
     def test_add_multiple_turns_in_order(
         self, session_env: tuple[Path, Driver]
     ) -> None:
-        """AC#1: Turns are stored in order of addition."""
+        """AC#1: TurnResults are stored in order of addition."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        t1 = make_turn(1, "init")
-        t2 = make_turn(2, "coding")
-        t3 = make_turn(3, "coding")
-        session.add_turn(t1)
-        session.add_turn(t2)
-        session.add_turn(t3)
-        assert session.turns == (t1, t2, t3)
+        r1 = make_result(1, "init")
+        r2 = make_result(2, "coding")
+        r3 = make_result(3, "coding")
+        session.add_turn(r1)
+        session.add_turn(r2)
+        session.add_turn(r3)
+        assert session.turns == (r1, r2, r3)
 
     def test_turn_lookup_by_number(self, session_env: tuple[Path, Driver]) -> None:
-        """AC#2: turn(n) returns correct turn by turn_number."""
+        """AC#2: turn(n) returns correct TurnResult by turn_number."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        t1 = make_turn(1)
-        t2 = make_turn(2)
-        session.add_turn(t1)
-        session.add_turn(t2)
-        assert session.turn(1) is t1
-        assert session.turn(2) is t2
+        r1 = make_result(1)
+        r2 = make_result(2)
+        session.add_turn(r1)
+        session.add_turn(r2)
+        assert session.turn(1) is r1
+        assert session.turn(2) is r2
 
     def test_turn_lookup_raises_keyerror(
         self, session_env: tuple[Path, Driver]
@@ -165,7 +167,7 @@ class TestSession:
         """AC#2: turn(n) raises KeyError for non-existent turn."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        session.add_turn(make_turn(1))
+        session.add_turn(make_result(1))
         with pytest.raises(KeyError):
             session.turn(99)
 
@@ -175,10 +177,10 @@ class TestSession:
         """AC#3: Iteration yields turns in chronological order."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        turns = [make_turn(i) for i in range(1, 4)]
-        for t in turns:
-            session.add_turn(t)
-        assert list(session) == turns
+        results = [make_result(i) for i in range(1, 4)]
+        for r in results:
+            session.add_turn(r)
+        assert list(session) == results
 
     def test_turns_property_is_immutable(
         self, session_env: tuple[Path, Driver]
@@ -186,7 +188,7 @@ class TestSession:
         """AC#4: turns property returns tuple (immutable view)."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        session.add_turn(make_turn(1))
+        session.add_turn(make_result(1))
         turns = session.turns
         assert isinstance(turns, tuple)
 
@@ -195,7 +197,7 @@ class TestSession:
         root_dir, driver = session_env
         session = Session(root_dir, driver)
         with pytest.raises(ValueError, match="First turn must be turn 1"):
-            session.add_turn(make_turn(5))  # Must start at 1
+            session.add_turn(make_result(5))  # Must start at 1
 
     def test_add_turn_requires_monotonic_increase(
         self, session_env: tuple[Path, Driver]
@@ -203,18 +205,18 @@ class TestSession:
         """Turn numbers must be monotonically increasing."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        session.add_turn(make_turn(1))
-        session.add_turn(make_turn(5))  # Gap is fine
+        session.add_turn(make_result(1))
+        session.add_turn(make_result(5))  # Gap is fine
         with pytest.raises(ValueError, match="must be > 5"):
-            session.add_turn(make_turn(3))  # Going backwards - fails
+            session.add_turn(make_result(3))  # Going backwards - fails
 
     def test_add_turn_rejects_duplicate(self, session_env: tuple[Path, Driver]) -> None:
         """Cannot add turn with same number as existing turn."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        session.add_turn(make_turn(1))
+        session.add_turn(make_result(1))
         with pytest.raises(ValueError, match="must be > 1"):
-            session.add_turn(make_turn(1))  # Duplicate - fails
+            session.add_turn(make_result(1))  # Duplicate - fails
 
     def test_failed_add_doesnt_corrupt_state(
         self, session_env: tuple[Path, Driver]
@@ -222,10 +224,10 @@ class TestSession:
         """Failed add_turn must leave session state unchanged."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        session.add_turn(make_turn(1))
+        session.add_turn(make_result(1))
         with pytest.raises(ValueError):
-            session.add_turn(make_turn(1))  # Duplicate - fails
-        session.add_turn(make_turn(2))  # Valid next - should work
+            session.add_turn(make_result(1))  # Duplicate - fails
+        session.add_turn(make_result(2))  # Valid next - should work
         assert len(session) == 2
         assert session.turn(1).turn_number == 1
         assert session.turn(2).turn_number == 2
@@ -296,14 +298,14 @@ class TestSessionValidation:
         with pytest.raises(TypeError, match="expected Driver, got 'not a driver'"):
             Session(root_dir, "not a driver")  # type: ignore[arg-type]
 
-    def test_rejects_non_turn_in_add_turn(
+    def test_rejects_non_turn_result_in_add_turn(
         self, session_env: tuple[Path, Driver]
     ) -> None:
-        """add_turn rejects non-Turn values."""
+        """add_turn rejects non-TurnResult values."""
         root_dir, driver = session_env
         session = Session(root_dir, driver)
-        with pytest.raises(TypeError, match="expected Turn, got 'not a turn'"):
-            session.add_turn("not a turn")  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="expected TurnResult, got 'not a result'"):
+            session.add_turn("not a result")  # type: ignore[arg-type]
 
 
 @pytest.fixture
@@ -378,49 +380,49 @@ class TestSessionExecuteTurn:
     """Tests for Session.execute_turn() method."""
 
     def test_creates_turn_with_correct_number(self, execute_session: Session) -> None:
-        """AC#1: execute_turn creates Turn with correct turn_number."""
-        turn = execute_session.execute_turn("test prompt", TransitionType("init"))
+        """AC#1: execute_turn creates TurnResult with correct turn_number."""
+        result = execute_session.execute_turn("test prompt", TransitionType("init"))
 
-        assert turn.turn_number == 1
-        assert turn.result.outcome == "success"
+        assert result.turn_number == 1
+        assert result.outcome == "success"
 
     def test_turn_has_correct_transition_type(self, execute_session: Session) -> None:
-        """AC#1: execute_turn creates Turn with correct transition_type."""
+        """AC#1: execute_turn creates TurnResult with correct transition_type."""
         transition_type = TransitionType("coding")
-        turn = execute_session.execute_turn("test prompt", transition_type)
+        result = execute_session.execute_turn("test prompt", transition_type)
 
-        assert turn.transition_type == transition_type
+        assert result.transition_type == transition_type
 
     def test_turn_has_correct_log_file_path(self, execute_session: Session) -> None:
-        """AC#1: execute_turn creates Turn with log_file following TurnLog pattern."""
-        turn = execute_session.execute_turn("test prompt", TransitionType("init"))
+        """AC#1: execute_turn creates TurnResult with log_file following TurnLog pattern."""
+        result = execute_session.execute_turn("test prompt", TransitionType("init"))
 
-        assert turn.log_file.name == "turn-00001-init.log"
-        assert turn.log_file.parent == execute_session.log_dir
+        assert result.log_file.name == "turn-00001-init.log"
+        assert result.log_file.parent == execute_session.log_dir
 
     def test_turn_is_added_to_session(self, execute_session: Session) -> None:
-        """AC#1: execute_turn adds Turn to session."""
-        turn = execute_session.execute_turn("test prompt", TransitionType("init"))
+        """AC#1: execute_turn adds TurnResult to session."""
+        result = execute_session.execute_turn("test prompt", TransitionType("init"))
 
         assert len(execute_session) == 1
-        assert execute_session[1] is turn
+        assert execute_session[1] is result
 
     def test_sequential_calls_increment_turn_number(
         self, execute_session: Session
     ) -> None:
         """AC#1: Sequential execute_turn calls increment turn_number."""
-        turn1 = execute_session.execute_turn("prompt 1", TransitionType("init"))
-        turn2 = execute_session.execute_turn("prompt 2", TransitionType("coding"))
-        turn3 = execute_session.execute_turn("prompt 3", TransitionType("coding"))
+        r1 = execute_session.execute_turn("prompt 1", TransitionType("init"))
+        r2 = execute_session.execute_turn("prompt 2", TransitionType("coding"))
+        r3 = execute_session.execute_turn("prompt 3", TransitionType("coding"))
 
-        assert turn1.turn_number == 1
-        assert turn2.turn_number == 2
-        assert turn3.turn_number == 3
+        assert r1.turn_number == 1
+        assert r2.turn_number == 2
+        assert r3.turn_number == 3
 
     def test_exception_does_not_create_turn(
         self, execute_session_no_commit: Session
     ) -> None:
-        """Failed execution does not create a Turn - no commit means no Turn."""
+        """Failed execution does not create a TurnResult - no commit means no Turn."""
         with pytest.raises(RuntimeError, match="No commit"):
             execute_session_no_commit.execute_turn(
                 "test prompt", TransitionType("init")
@@ -434,9 +436,9 @@ class TestSessionLogging:
 
     def test_successful_turn_logs_start_and_end(self, execute_session: Session) -> None:
         """Successful execute_turn logs start and end markers with outcome."""
-        turn = execute_session.execute_turn("test prompt", TransitionType("init"))
+        result = execute_session.execute_turn("test prompt", TransitionType("init"))
 
-        log_content = turn.log_file.read_text()
+        log_content = result.log_file.read_text()
         assert "=== Turn 1 START ===" in log_content
         assert "=== Turn 1 END: success ===" in log_content
 
@@ -460,11 +462,11 @@ class TestSessionLogging:
         self, execute_session: Session
     ) -> None:
         """Multiple successful turns log with correct turn numbers."""
-        turn1 = execute_session.execute_turn("prompt 1", TransitionType("init"))
-        turn2 = execute_session.execute_turn("prompt 2", TransitionType("coding"))
+        r1 = execute_session.execute_turn("prompt 1", TransitionType("init"))
+        r2 = execute_session.execute_turn("prompt 2", TransitionType("coding"))
 
-        log1_content = turn1.log_file.read_text()
-        log2_content = turn2.log_file.read_text()
+        log1_content = r1.log_file.read_text()
+        log2_content = r2.log_file.read_text()
 
         assert "=== Turn 1 START ===" in log1_content
         assert "=== Turn 1 END: success ===" in log1_content
