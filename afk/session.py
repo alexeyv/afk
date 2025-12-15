@@ -1,6 +1,4 @@
-import shlex
 import signal
-import subprocess
 from pathlib import Path
 from typing import Iterator
 
@@ -21,17 +19,16 @@ _SIGNAL_NAMES: dict[int, str] = {
 
 
 def _read_log_tail(file_path: str) -> str:
-    """Read last 5 lines from log, max 2000 bytes total."""
+    """Read last 5 non-blank lines from log, max 2000 bytes total."""
     try:
-        result = subprocess.run(
-            f"tail -c 2000 {shlex.quote(file_path)} | tail -n 5",
-            shell=True,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            return "(could not read log file)"
-        return result.stdout.rstrip("\n")
+        with open(file_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 2000))
+            data = f.read(2000).decode("utf-8", errors="replace")
+        # Filter out blank/whitespace-only lines, take last 5
+        lines = [line for line in data.splitlines() if line.strip()]
+        return "\n".join(lines[-5:])
     except Exception:
         return "(could not read log file)"
 
