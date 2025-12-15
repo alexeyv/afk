@@ -1,3 +1,4 @@
+import shlex
 import signal
 import subprocess
 from pathlib import Path
@@ -21,8 +22,6 @@ _SIGNAL_NAMES: dict[int, str] = {
 
 def _read_log_tail(file_path: str) -> str:
     """Read last 5 lines from log, max 2000 bytes total."""
-    import shlex
-
     try:
         result = subprocess.run(
             f"tail -c 2000 {shlex.quote(file_path)} | tail -n 5",
