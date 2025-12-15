@@ -59,17 +59,19 @@ classDiagram
         <<mutable state machine>>
         -Driver _driver
         -Path _session_root
-        -int _number
+        -int|None _number
         -TurnState _state
         -TurnLog|None _turn_log
+        -TransitionType|None _transition_type
+        -datetime|None _timestamp
         -str|None _head_before
         +number int
         +state TurnState
         +log_file Path
         +head_before str|None
-        +start(type) void
-        +execute(prompt, log_file) int
-        +finish(outcome, hash, msg) TurnResult
+        +start(transition_type) void
+        +execute(prompt) int
+        +finish(outcome, commit_hash, message) TurnResult
         +abort(exception) void
         +next_turn_number(resume_from)$ int
         +reset_turn_counter()$ void
@@ -90,11 +92,11 @@ classDiagram
     class Session {
         -Path _root_dir
         -Driver _driver
-        -list~TurnResult~ _history
+        -list~TurnResult~ _turns
         +root_dir Path
         +log_dir Path
         +turns tuple~TurnResult~
-        +execute_turn(prompt, type) TurnResult
+        +execute_turn(prompt, transition_type) TurnResult
         +add_turn(result)
         +turn(n) TurnResult
         +__iter__() Iterator~TurnResult~
@@ -165,8 +167,8 @@ classDiagram
     +---------+
          |
          | start(transition_type)
-         | - creates TurnLog
          | - captures HEAD
+         | - creates TurnLog
          v
     +-------------+
     | IN_PROGRESS |
@@ -187,7 +189,7 @@ classDiagram
 ## Lifecycle Flow
 
 ```
-Session.execute_turn(prompt, type)
+Session.execute_turn(prompt, transition_type)
     |
     +-> Turn(driver, session_root)     // creates in INITIAL state
     |       |
@@ -199,7 +201,7 @@ Session.execute_turn(prompt, type)
     |       +-> creates TurnLog
     |       +-> logs START marker
     |
-    +-> turn.execute(prompt, log_file)
+    +-> turn.execute(prompt)
     |       |
     |       +-> Driver.run()           // execute prompt
     |       +-> returns exit code
@@ -212,7 +214,7 @@ Session.execute_turn(prompt, type)
     |       +-> Git.parse_commit_message()
     |       +-> returns (outcome, commit_hash, message)
     |
-    +-> turn.finish(outcome, hash, msg) // IN_PROGRESS -> FINISHED
+    +-> turn.finish(outcome, commit_hash, message) // IN_PROGRESS -> FINISHED
     |       |
     |       +-> logs END marker
     |       +-> returns TurnResult
@@ -223,7 +225,7 @@ Session.execute_turn(prompt, type)
 ### On Error
 
 ```
-Session.execute_turn(prompt, type)
+Session.execute_turn(prompt, transition_type)
     |
     +-> Turn(...), start(...), execute(...)
     |
