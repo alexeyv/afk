@@ -44,12 +44,19 @@ class Driver:
         if not working_dir.is_absolute():
             raise ValueError("working_dir must be an absolute path")
         self._working_dir = working_dir
-        self.model = model
+        self._model = model
+
+    def __repr__(self) -> str:
+        return f"Driver({self._working_dir!r}, model={self._model!r})"
 
     @property
     def working_dir(self) -> Path:
         """Return the working directory for command execution."""
         return self._working_dir
+
+    @property
+    def model(self) -> str | None:
+        return self._model
 
     def run(self, prompt: str, log_file: str) -> int:
         log_path = Path(log_file).resolve()
@@ -92,8 +99,8 @@ class Driver:
 
     def _build_command(self, prompt: str, log_file: str) -> list[str]:
         claude_cmd = ["claude", "--print"]
-        if self.model:
-            claude_cmd.extend(["--model", self.model])
+        if self._model:
+            claude_cmd.extend(["--model", self._model])
         claude_cmd.append(prompt)
 
         if sys.platform == "darwin":
