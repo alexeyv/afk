@@ -21,7 +21,7 @@ classDiagram
     }
 
     class Driver {
-        +Git git
+        +Path working_dir
         +str|None model
         +run(prompt, log_file) int
     }
@@ -58,6 +58,7 @@ classDiagram
     class Turn {
         <<mutable state machine>>
         -Driver _driver
+        -Git _git
         -Path _session_root
         -int|None _number
         -TurnState _state
@@ -92,6 +93,7 @@ classDiagram
     class Session {
         -Path _root_dir
         -Driver _driver
+        -Git _git
         -list~TurnResult~ _turns
         +root_dir Path
         +log_dir Path
@@ -110,7 +112,7 @@ classDiagram
     }
 
     %% Composition (ownership)
-    Driver *-- Git : owns
+    Session *-- Git : owns
     Session *-- Driver : owns
     Turn *-- TurnLog : creates on start()
     Turn --> TurnResult : creates on finish()
@@ -118,6 +120,7 @@ classDiagram
     %% Association (references)
     Turn --> TurnState : has current
     Turn o-- TransitionType : has
+    Turn o-- Git : references
     TurnResult o-- TransitionType : has
     TurnLog o-- TransitionType : references
     Session *-- TurnResult : stores 0..*
@@ -151,7 +154,7 @@ classDiagram
 | **TransitionType** | Validated state label (e.g., "init", "coding") | Yes (value object) |
 | **Turn** | Mutable state machine for active turn execution | No (state machine) |
 | **TurnLog** | Manages log file paths and writes turn lifecycle events | No |
-| **Session** | Orchestrates turns, owns driver and stores TurnResult history | No |
+| **Session** | Orchestrates turns, owns driver, git, and stores TurnResult history | No |
 
 ### Function
 
@@ -191,7 +194,7 @@ classDiagram
 ```
 Session.execute_turn(prompt, transition_type)
     |
-    +-> Turn(driver, session_root)     // creates in INITIAL state
+    +-> Turn(driver, git, session_root)  // creates in INITIAL state
     |       |
     |       +-> allocates turn number
     |
@@ -243,9 +246,9 @@ Session.execute_turn(prompt, transition_type)
 |--------|-------------|
 | **TransitionType** | Construction: pattern `^[a-z][a-z0-9_.-]*$` |
 | **TurnResult** | Construction: number range 1-99999, types, absolute path, timezone-aware timestamp |
-| **Turn** | Construction: Driver type, Path type, absolute path |
+| **Turn** | Construction: Driver type, Git type, Path type, absolute path |
 | **Turn.start()** | TransitionType type |
 | **Turn.execute/finish/abort()** | State is IN_PROGRESS |
 | **TurnLog** | Construction: number range, type, Path for session_root |
-| **Session** | Construction: absolute directory path, valid Driver |
+| **Session** | Construction: absolute directory path, valid Driver, valid Git |
 | **validate_turn_execution** | Runtime: exactly one commit, zero exit code, ancestry path |

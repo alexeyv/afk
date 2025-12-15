@@ -9,28 +9,16 @@ from typing import Any, cast
 import pytest
 
 from afk.driver import Driver
-from afk.git import Git
 
 PROJECT_ROOT = str(Path(__file__).parent.parent)
 
 
 @pytest.fixture
-def git_repo(tmp_path: Path) -> Git:
-    """Create a temp git repo with user config."""
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    return Git(str(tmp_path))
+def working_dir(tmp_path: Path) -> Path:
+    """Create a temp directory for driver working dir."""
+    work_dir = tmp_path / "workdir"
+    work_dir.mkdir()
+    return work_dir
 
 
 def fake_claude(
@@ -53,22 +41,30 @@ exit {exit_code}
 
 
 class TestDriverInit:
-    def test_stores_git(self, git_repo: Git):
-        driver = Driver(git_repo)
-        assert driver.git is git_repo
+    def test_stores_working_dir(self, working_dir: Path):
+        driver = Driver(working_dir)
+        assert driver.working_dir == working_dir
 
-    def test_model_defaults_to_none(self, git_repo: Git):
-        driver = Driver(git_repo)
+    def test_model_defaults_to_none(self, working_dir: Path):
+        driver = Driver(working_dir)
         assert driver.model is None
 
-    def test_accepts_model_parameter(self, git_repo: Git):
-        driver = Driver(git_repo, model="claude-3-5-haiku-latest")
+    def test_accepts_model_parameter(self, working_dir: Path):
+        driver = Driver(working_dir, model="claude-3-5-haiku-latest")
         assert driver.model == "claude-3-5-haiku-latest"
+
+    def test_rejects_non_path(self):
+        with pytest.raises(TypeError, match="expected Path"):
+            Driver("/some/path")  # type: ignore[arg-type]
+
+    def test_rejects_relative_path(self, tmp_path: Path):
+        with pytest.raises(ValueError, match="absolute path"):
+            Driver(Path("relative/path"))
 
 
 class TestDriverBuildCommand:
-    def test_builds_command_without_model(self, git_repo: Git):
-        driver = Driver(git_repo)
+    def test_builds_command_without_model(self, working_dir: Path):
+        driver = Driver(working_dir)
         cmd = driver._build_command("test prompt", "/tmp/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         assert cmd[0] == "script"
@@ -77,16 +73,16 @@ class TestDriverBuildCommand:
         assert "test prompt" in cmd
         assert "--model" not in cmd
 
-    def test_builds_command_with_model(self, git_repo: Git):
-        driver = Driver(git_repo, model="claude-3-5-haiku-latest")
+    def test_builds_command_with_model(self, working_dir: Path):
+        driver = Driver(working_dir, model="claude-3-5-haiku-latest")
         cmd = driver._build_command("test prompt", "/tmp/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         assert "--model" in cmd
         assert "claude-3-5-haiku-latest" in cmd
 
     @pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific test")
-    def test_macos_command_format(self, git_repo: Git):
-        driver = Driver(git_repo)
+    def test_macos_command_format(self, working_dir: Path):
+        driver = Driver(working_dir)
         cmd = driver._build_command("my prompt", "/path/to/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         # macOS: script -a -q <logfile> claude --print <prompt>
@@ -99,8 +95,8 @@ class TestDriverBuildCommand:
         assert cmd[6] == "my prompt"
 
     @pytest.mark.skipif(sys.platform == "darwin", reason="Linux-specific test")
-    def test_linux_command_format(self, git_repo: Git):
-        driver = Driver(git_repo)
+    def test_linux_command_format(self, working_dir: Path):
+        driver = Driver(working_dir)
         cmd = driver._build_command("my prompt", "/path/to/log.txt")  # pyright: ignore[reportPrivateUsage]
 
         # Linux: script -a -q -c "<command>" <logfile>
@@ -115,8 +111,8 @@ class TestDriverBuildCommand:
         assert cmd[5] == "/path/to/log.txt"
 
     @pytest.mark.skipif(sys.platform == "darwin", reason="Linux-specific test")
-    def test_linux_command_escapes_shell_metacharacters(self, git_repo: Git):
-        driver = Driver(git_repo)
+    def test_linux_command_escapes_shell_metacharacters(self, working_dir: Path):
+        driver = Driver(working_dir)
         malicious_prompt = "hello; rm -rf / #"
         cmd = driver._build_command(malicious_prompt, "/tmp/log.txt")  # pyright: ignore[reportPrivateUsage]
 
@@ -126,29 +122,11 @@ class TestDriverBuildCommand:
         assert "'hello; rm -rf / #'" in cmd_str
 
 
-def _init_git_repo(path: Path) -> None:
-    """Initialize a git repo at path for subprocess tests."""
-    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=path,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=path,
-        check=True,
-        capture_output=True,
-    )
-
-
 class TestDriverRunWithFakeCLI:
     def test_executes_and_returns_exit_code_zero(self, tmp_path: Path):
         cli = fake_claude(tmp_path)
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -160,11 +138,10 @@ class TestDriverRunWithFakeCLI:
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 exit_code = driver.run('test prompt', '{log_file}')
 sys.exit(exit_code)
 """,
@@ -178,9 +155,8 @@ sys.exit(exit_code)
         cli = fake_claude(
             tmp_path, exit_code=1, output="Claude error: something went wrong"
         )
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -192,11 +168,10 @@ sys.exit(exit_code)
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 exit_code = driver.run('test prompt', '{log_file}')
 sys.exit(exit_code)
 """,
@@ -208,9 +183,8 @@ sys.exit(exit_code)
 
     def test_creates_log_file(self, tmp_path: Path):
         cli = fake_claude(tmp_path)
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "logs" / "test.log")
 
         env = os.environ.copy()
@@ -222,11 +196,10 @@ sys.exit(exit_code)
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 driver.run('test prompt', '{log_file}')
 """,
             ],
@@ -237,9 +210,8 @@ driver.run('test prompt', '{log_file}')
 
     def test_log_file_contains_output(self, tmp_path: Path):
         cli = fake_claude(tmp_path)
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -251,11 +223,10 @@ driver.run('test prompt', '{log_file}')
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 driver.run('hello world prompt', '{log_file}')
 """,
             ],
@@ -267,9 +238,8 @@ driver.run('hello world prompt', '{log_file}')
 
     def test_model_flag_passed_to_cli(self, tmp_path: Path):
         cli = fake_claude(tmp_path)
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -281,11 +251,10 @@ driver.run('hello world prompt', '{log_file}')
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git, model='claude-3-5-haiku-latest')
+driver = Driver(Path('{work_dir}'), model='claude-3-5-haiku-latest')
 driver.run('test prompt', '{log_file}')
 """,
             ],
@@ -303,9 +272,8 @@ class TestDriverSignalHandling:
     )
     def test_sigint_terminates_process(self, tmp_path: Path):
         cli = fake_claude(tmp_path, delay=5)
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -317,11 +285,10 @@ class TestDriverSignalHandling:
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 driver.run('test prompt', '{log_file}')
 """,
             ],
@@ -343,9 +310,8 @@ driver.run('test prompt', '{log_file}')
     def test_log_created_after_completion(self, tmp_path: Path):
         """Log file should exist after driver completes normally."""
         cli = fake_claude(tmp_path, delay=0.1)
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -357,13 +323,12 @@ driver.run('test prompt', '{log_file}')
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 import afk.driver
 afk.driver._env_checked = False
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 driver.run('test prompt', '{log_file}')
 """,
             ],
@@ -391,9 +356,8 @@ driver.run('test prompt', '{log_file}')
         This is a platform limitation, not a bug in our code.
         """
         cli = fake_claude(tmp_path, delay=30)  # Long delay, will be killed
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
         log_file = str(tmp_path / "test.log")
 
         env = os.environ.copy()
@@ -405,13 +369,12 @@ driver.run('test prompt', '{log_file}')
                 "-c",
                 f"""
 import sys
+from pathlib import Path
 sys.path.insert(0, '{PROJECT_ROOT}')
 import afk.driver
 afk.driver._env_checked = False
 from afk.driver import Driver
-from afk.git import Git
-git = Git('{repo_path}')
-driver = Driver(git)
+driver = Driver(Path('{work_dir}'))
 driver.run('test prompt', '{log_file}')
 """,
             ],
@@ -458,12 +421,11 @@ class TestCLIAvailability:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
 
         with pytest.raises(RuntimeError):
-            Driver(Git(str(repo_path)))
+            Driver(work_dir)
 
         # Should have called claude --version
         assert ["claude", "--version"] in calls
@@ -485,12 +447,11 @@ class TestCLIAvailability:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
 
         with pytest.raises(RuntimeError) as exc_info:
-            Driver(Git(str(repo_path)))
+            Driver(work_dir)
 
         error_msg = str(exc_info.value)
         assert "claude" in error_msg and "failed" in error_msg
@@ -512,12 +473,11 @@ class TestCLIAvailability:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        repo_path = tmp_path / "repo"
-        repo_path.mkdir()
-        _init_git_repo(repo_path)
+        work_dir = tmp_path / "workdir"
+        work_dir.mkdir()
 
         with pytest.raises(RuntimeError) as exc_info:
-            Driver(Git(str(repo_path)))
+            Driver(work_dir)
 
         error_msg = str(exc_info.value)
         assert "--version" in error_msg or "version" in error_msg.lower()

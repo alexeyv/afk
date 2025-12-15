@@ -3,6 +3,7 @@ from typing import Iterator
 
 from afk.driver import Driver
 from afk.executor import validate_turn_execution
+from afk.git import Git
 from afk.transition_type import TransitionType
 from afk.turn import Turn
 from afk.turn_result import TurnResult
@@ -16,11 +17,13 @@ class Session:
     starting from 1.
     """
 
-    def __init__(self, root_dir: Path, driver: Driver) -> None:
+    def __init__(self, root_dir: Path, driver: Driver, git: Git) -> None:
         self._validate_root_dir(root_dir)
         self._validate_driver(driver)
+        self._validate_git(git)
         self._root_dir = root_dir
         self._driver = driver
+        self._git = git
         self._turns: list[TurnResult] = []
 
     @staticmethod
@@ -36,6 +39,11 @@ class Session:
     def _validate_driver(driver: Driver) -> None:
         if not isinstance(driver, Driver):
             raise TypeError(f"expected Driver, got {driver!r}")
+
+    @staticmethod
+    def _validate_git(git: Git) -> None:
+        if not isinstance(git, Git):
+            raise TypeError(f"expected Git, got {git!r}")
 
     @property
     def root_dir(self) -> Path:
@@ -54,7 +62,7 @@ class Session:
         and records the TurnResult. Only records on success. Exceptions
         propagate after logging ABORT.
         """
-        turn = Turn(self._driver, self._root_dir)
+        turn = Turn(self._driver, self._git, self._root_dir)
         turn.start(transition_type)
 
         try:
@@ -63,7 +71,7 @@ class Session:
 
             # Validate execution result and get commit info
             outcome, commit_hash, message = validate_turn_execution(
-                self._driver.git, exit_code, log_file_path, turn.head_before
+                self._git, exit_code, log_file_path, turn.head_before
             )
 
             result = turn.finish(outcome, commit_hash, message)

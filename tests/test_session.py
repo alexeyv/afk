@@ -92,7 +92,9 @@ exit 0
 
 
 @pytest.fixture
-def session_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Driver]:
+def session_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Driver, Git]:
     """Set up environment for Session tests with fake claude."""
     # Create git repo
     repo = tmp_path / "repo"
@@ -116,32 +118,32 @@ def session_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
     monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
 
     git = Git(str(repo))
-    driver = Driver(git)
-    return repo, driver
+    driver = Driver(repo)
+    return repo, driver, git
 
 
 class TestSession:
-    def test_empty_session(self, session_env: tuple[Path, Driver]) -> None:
+    def test_empty_session(self, session_env: tuple[Path, Driver, Git]) -> None:
         """AC#4: Session can be instantiated and returns empty tuple of turns."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         assert session.turns == ()
         assert list(session) == []
 
-    def test_add_single_turn(self, session_env: tuple[Path, Driver]) -> None:
+    def test_add_single_turn(self, session_env: tuple[Path, Driver, Git]) -> None:
         """AC#1: add_turn adds TurnResult to session."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         result = make_result(1, "init")
         session.add_turn(result)
         assert session.turns == (result,)
 
     def test_add_multiple_turns_in_order(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """AC#1: TurnResults are stored in order of addition."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         r1 = make_result(1, "init")
         r2 = make_result(2, "coding")
         r3 = make_result(3, "coding")
@@ -150,10 +152,10 @@ class TestSession:
         session.add_turn(r3)
         assert session.turns == (r1, r2, r3)
 
-    def test_turn_lookup_by_number(self, session_env: tuple[Path, Driver]) -> None:
+    def test_turn_lookup_by_number(self, session_env: tuple[Path, Driver, Git]) -> None:
         """AC#2: turn(n) returns correct TurnResult by turn_number."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         r1 = make_result(1)
         r2 = make_result(2)
         session.add_turn(r1)
@@ -162,68 +164,72 @@ class TestSession:
         assert session.turn(2) is r2
 
     def test_turn_lookup_raises_keyerror(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """AC#2: turn(n) raises KeyError for non-existent turn."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         session.add_turn(make_result(1))
         with pytest.raises(KeyError):
             session.turn(99)
 
     def test_iteration_chronological_order(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """AC#3: Iteration yields turns in chronological order."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         results = [make_result(i) for i in range(1, 4)]
         for r in results:
             session.add_turn(r)
         assert list(session) == results
 
     def test_turns_property_is_immutable(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """AC#4: turns property returns tuple (immutable view)."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         session.add_turn(make_result(1))
         turns = session.turns
         assert isinstance(turns, tuple)
 
-    def test_first_turn_must_be_one(self, session_env: tuple[Path, Driver]) -> None:
+    def test_first_turn_must_be_one(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
         """First turn must have turn_number 1."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         with pytest.raises(ValueError, match="First turn must be turn 1"):
             session.add_turn(make_result(5))  # Must start at 1
 
     def test_add_turn_requires_monotonic_increase(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """Turn numbers must be monotonically increasing."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         session.add_turn(make_result(1))
         session.add_turn(make_result(5))  # Gap is fine
         with pytest.raises(ValueError, match="must be > 5"):
             session.add_turn(make_result(3))  # Going backwards - fails
 
-    def test_add_turn_rejects_duplicate(self, session_env: tuple[Path, Driver]) -> None:
+    def test_add_turn_rejects_duplicate(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
         """Cannot add turn with same number as existing turn."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         session.add_turn(make_result(1))
         with pytest.raises(ValueError, match="must be > 1"):
             session.add_turn(make_result(1))  # Duplicate - fails
 
     def test_failed_add_doesnt_corrupt_state(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """Failed add_turn must leave session state unchanged."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         session.add_turn(make_result(1))
         with pytest.raises(ValueError):
             session.add_turn(make_result(1))  # Duplicate - fails
@@ -237,73 +243,83 @@ class TestSessionRootDir:
     """Tests for Session root_dir and log_dir properties."""
 
     def test_root_dir_returns_session_root(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """root_dir property returns the session root directory."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         assert session.root_dir == root_dir
 
     def test_log_dir_returns_logs_subdirectory(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """log_dir property returns root_dir / 'logs'."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         assert session.log_dir == root_dir / "logs"
 
-    def test_log_dir_is_absolute(self, session_env: tuple[Path, Driver]) -> None:
+    def test_log_dir_is_absolute(self, session_env: tuple[Path, Driver, Git]) -> None:
         """log_dir property returns an absolute path."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         assert session.log_dir.is_absolute()
 
 
 class TestSessionValidation:
     """Tests for Session input validation."""
 
-    def test_rejects_string_root_dir(self, session_env: tuple[Path, Driver]) -> None:
+    def test_rejects_string_root_dir(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
         """root_dir must be Path, not string."""
-        _, driver = session_env
+        _, driver, git = session_env
         with pytest.raises(TypeError, match="expected Path, got '/some/path'"):
-            Session("/some/path", driver)  # type: ignore[arg-type]
+            Session("/some/path", driver, git)  # type: ignore[arg-type]
 
-    def test_rejects_relative_root_dir(self, session_env: tuple[Path, Driver]) -> None:
+    def test_rejects_relative_root_dir(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
         """root_dir must be absolute."""
-        _, driver = session_env
+        _, driver, git = session_env
         with pytest.raises(ValueError, match="must be an absolute path"):
-            Session(Path("relative/path"), driver)
+            Session(Path("relative/path"), driver, git)
 
     def test_rejects_nonexistent_root_dir(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """root_dir must be an existing directory."""
-        _, driver = session_env
+        _, driver, git = session_env
         with pytest.raises(ValueError, match="must be a directory"):
-            Session(Path("/nonexistent/path"), driver)
+            Session(Path("/nonexistent/path"), driver, git)
 
     def test_rejects_file_as_root_dir(
-        self, tmp_path: Path, session_env: tuple[Path, Driver]
+        self, tmp_path: Path, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """root_dir must be a directory, not a file."""
-        _, driver = session_env
+        _, driver, git = session_env
         file_path = tmp_path / "somefile.txt"
         file_path.write_text("content")
         with pytest.raises(ValueError, match="must be a directory"):
-            Session(file_path, driver)
+            Session(file_path, driver, git)
 
-    def test_rejects_non_driver(self, session_env: tuple[Path, Driver]) -> None:
+    def test_rejects_non_driver(self, session_env: tuple[Path, Driver, Git]) -> None:
         """driver must be Driver instance."""
-        root_dir, _ = session_env
+        root_dir, _, git = session_env
         with pytest.raises(TypeError, match="expected Driver, got 'not a driver'"):
-            Session(root_dir, "not a driver")  # type: ignore[arg-type]
+            Session(root_dir, "not a driver", git)  # type: ignore[arg-type]
+
+    def test_rejects_non_git(self, session_env: tuple[Path, Driver, Git]) -> None:
+        """git must be Git instance."""
+        root_dir, driver, _ = session_env
+        with pytest.raises(TypeError, match="expected Git, got 'not a git'"):
+            Session(root_dir, driver, "not a git")  # type: ignore[arg-type]
 
     def test_rejects_non_turn_result_in_add_turn(
-        self, session_env: tuple[Path, Driver]
+        self, session_env: tuple[Path, Driver, Git]
     ) -> None:
         """add_turn rejects non-TurnResult values."""
-        root_dir, driver = session_env
-        session = Session(root_dir, driver)
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
         with pytest.raises(TypeError, match="expected TurnResult, got 'not a result'"):
             session.add_turn("not a result")  # type: ignore[arg-type]
 
@@ -337,8 +353,8 @@ def execute_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Session:
     monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
 
     git = Git(str(repo))
-    driver = Driver(git)
-    return Session(repo, driver)
+    driver = Driver(repo)
+    return Session(repo, driver, git)
 
 
 @pytest.fixture
@@ -372,8 +388,8 @@ def execute_session_no_commit(
     monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
 
     git = Git(str(repo))
-    driver = Driver(git)
-    return Session(repo, driver)
+    driver = Driver(repo)
+    return Session(repo, driver, git)
 
 
 class TestSessionExecuteTurn:

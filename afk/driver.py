@@ -6,8 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from afk.git import Git
-
 _env_checked = False
 
 
@@ -39,10 +37,19 @@ def _check_environment() -> None:
 
 
 class Driver:
-    def __init__(self, git: Git, *, model: str | None = None):
+    def __init__(self, working_dir: Path, *, model: str | None = None):
         _check_environment()
-        self.git = git
+        if not isinstance(working_dir, Path):
+            raise TypeError(f"expected Path, got {working_dir!r}")
+        if not working_dir.is_absolute():
+            raise ValueError("working_dir must be an absolute path")
+        self._working_dir = working_dir
         self.model = model
+
+    @property
+    def working_dir(self) -> Path:
+        """Return the working directory for command execution."""
+        return self._working_dir
 
     def run(self, prompt: str, log_file: str) -> int:
         log_path = Path(log_file).resolve()
@@ -52,7 +59,7 @@ class Driver:
 
         proc = subprocess.Popen(
             cmd,
-            cwd=self.git.repo_path,
+            cwd=self._working_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             start_new_session=True,

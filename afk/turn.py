@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from afk.driver import Driver
+from afk.git import Git
 from afk.transition_type import TransitionType
 from afk.turn_log import TurnLog
 from afk.turn_result import TurnResult
@@ -61,21 +62,25 @@ class Turn:
         """Reset turn counter to 1 (for testing)."""
         cls._next_number = 1
 
-    def __init__(self, driver: Driver, session_root: Path) -> None:
+    def __init__(self, driver: Driver, git: Git, session_root: Path) -> None:
         """Create a new Turn in Initial state.
 
         Args:
             driver: The Driver to use for execution.
+            git: The Git instance for repository operations.
             session_root: Session root directory for logging.
         """
         if not isinstance(driver, Driver):
             raise TypeError(f"expected Driver, got {driver!r}")
+        if not isinstance(git, Git):
+            raise TypeError(f"expected Git, got {git!r}")
         if not isinstance(session_root, Path):
             raise TypeError(f"expected Path, got {session_root!r}")
         if not session_root.is_absolute():
             raise ValueError("session_root must be an absolute path")
 
         self._driver = driver
+        self._git = git
         self._session_root = session_root
         self._number: int | None = None  # Allocated in start() to prevent leaks
         self._state = TurnState.INITIAL
@@ -134,7 +139,7 @@ class Turn:
         self._number = self.next_turn_number()  # Allocate here to prevent leaks
         self._transition_type = transition_type
         self._timestamp = datetime.now(timezone.utc)
-        self._head_before = self._driver.git.head_commit()
+        self._head_before = self._git.head_commit()
         self._turn_log = TurnLog(self._number, transition_type, self._session_root)
         self._state = TurnState.IN_PROGRESS
 
