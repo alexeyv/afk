@@ -1,16 +1,31 @@
 import re
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 
 class Git:
     def __init__(self, repo_path: str):
-        self.repo_path = repo_path
+        if not isinstance(repo_path, str):
+            raise RuntimeError(f"repo_path must be str, got {type(repo_path).__name__}")
+        path = Path(repo_path)
+        if not path.exists():
+            raise RuntimeError(f"repo_path does not exist: {repo_path}")
+        if not path.is_dir():
+            raise RuntimeError(f"repo_path is not a directory: {repo_path}")
+        self._repo_path = repo_path
+
+    def __repr__(self) -> str:
+        return f"Git({self._repo_path!r})"
+
+    @property
+    def repo_path(self) -> str:
+        return self._repo_path
 
     def head_commit(self) -> Optional[str]:
         result = subprocess.run(
             ["git", "rev-parse", "--verify", "--quiet", "HEAD"],
-            cwd=self.repo_path,
+            cwd=self._repo_path,
             capture_output=True,
             text=True,
         )
@@ -20,13 +35,13 @@ class Git:
         # HEAD failed - distinguish unborn branch from broken repo
         repo_check = subprocess.run(
             ["git", "rev-parse", "--git-dir"],
-            cwd=self.repo_path,
+            cwd=self._repo_path,
             capture_output=True,
             text=True,
         )
         if repo_check.returncode == 0:
             return None  # Valid repo, just no commits yet
-        raise RuntimeError(f"Not a git repository: {self.repo_path}")
+        raise RuntimeError(f"Not a git repository: {self._repo_path}")
 
     def commit_message(self, commit_hash: str) -> str:
         return self._run("log", "-1", "--format=%B", commit_hash, "--")
@@ -107,7 +122,7 @@ class Git:
     def _run(self, *args: str) -> str:
         result = subprocess.run(
             ["git", *args],
-            cwd=self.repo_path,
+            cwd=self._repo_path,
             capture_output=True,
             text=True,
         )
