@@ -1,5 +1,6 @@
 import os
 import subprocess
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from afk.driver import Driver
 from afk.git import Git
 from afk.session import Session
 from afk.transition_type import TransitionType
+from afk.turn import Turn
 from afk.turn_result import TurnResult
 
 FIXED_TIME = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -538,3 +540,293 @@ class TestSessionAllocateTurnNumber:
         assert session1.allocate_turn_number() == 2
         assert session2.allocate_turn_number() == 1  # Independent counter
         assert session1.allocate_turn_number() == 3
+
+
+# =============================================================================
+# Tests for Session.build_turn_result()
+# =============================================================================
+
+
+@pytest.fixture
+def session_with_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Session, Git, Driver, Path]:
+    """Create a Session with git repo for testing build_turn_result."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+    fake_bin = fake_claude_noop(tmp_path)
+    monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
+
+    git = Git(str(repo))
+    driver = Driver(repo)
+    session = Session(repo, driver, git)
+    return session, git, driver, repo
+
+
+def make_turn(driver: Driver, git: Git, repo: Path) -> Turn:
+    """Create and start a Turn, capturing current HEAD."""
+    turn = Turn(driver, git, repo)
+    turn.start(1, TransitionType("test"))
+    return turn
+
+
+def make_commit(git: Git, message: str) -> str:
+    """Helper to create a commit and return its hash."""
+    repo_path = Path(git.repo_path)
+    filename = f"file_{uuid.uuid4().hex[:8]}.txt"
+    (repo_path / filename).write_text(f"commit: {message}")
+    subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=repo_path,
+        check=True,
+        capture_output=True,
+    )
+    commit_hash = git.head_commit()
+    assert commit_hash is not None
+    return commit_hash
+
+
+class TestBuildTurnResultWithOneCommit:
+    def test_returns_result_with_single_commit(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial commit")
+        turn = make_turn(driver, git, repo)
+
+        make_commit(git, "feat: agent work\n\noutcome: success")
+
+        result = session.build_turn_result(turn, exit_code=0)
+
+        assert result.outcome == "success"
+        assert "feat: agent work" in result.message
+        assert len(result.commit_hash) >= 40
+
+    def test_extracts_outcome_from_commit_message(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial commit")
+        turn = make_turn(driver, git, repo)
+
+        make_commit(git, "fix: bug fix\n\noutcome: failure")
+
+        result = session.build_turn_result(turn, exit_code=0)
+
+        assert result.outcome == "failure"
+        assert "fix: bug fix" in result.message
+
+    def test_works_with_no_prior_commits(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        turn = make_turn(driver, git, repo)  # head_before will be None
+
+        make_commit(git, "feat: first feature\n\noutcome: success")
+
+        result = session.build_turn_result(turn, exit_code=0)
+
+        assert result.outcome == "success"
+        assert "feat: first feature" in result.message
+        assert len(result.commit_hash) >= 40
+
+
+class TestBuildTurnResultEdgeCases:
+    def test_outcome_none_when_not_in_message(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        make_commit(git, "chore: update deps")
+
+        result = session.build_turn_result(turn, exit_code=0)
+
+        assert result.outcome is None
+        assert "chore: update deps" in result.message
+
+    def test_raises_on_nonzero_exit_code(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError, match="Exit code: 1"):
+            session.build_turn_result(turn, exit_code=1)
+
+
+class TestBuildTurnResultZeroCommitsError:
+    """Tests for zero commits error message content."""
+
+    def test_zero_commits_error_says_no_commit_detected(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 0)
+
+        assert "No commit at end of turn" in str(exc_info.value)
+
+    def test_zero_commits_error_includes_head(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        head = make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 0)
+
+        error_msg = str(exc_info.value)
+        assert "HEAD:" in error_msg
+        assert head[:7] in error_msg
+
+    def test_zero_commits_error_includes_log_file_path(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 0)
+
+        assert str(turn.log_file) in str(exc_info.value)
+
+
+class TestBuildTurnResultMultipleCommitsError:
+    """Tests for multiple commits error message content."""
+
+    def test_multiple_commits_error_says_multiple_detected(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        make_commit(git, "feat: first\n\noutcome: success")
+        make_commit(git, "fix: second\n\noutcome: success")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 0)
+
+        assert "Multiple commits detected" in str(exc_info.value)
+
+    def test_multiple_commits_error_lists_hashes_and_subjects(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        make_commit(git, "feat: first change")
+        make_commit(git, "fix: second change")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 0)
+
+        error_msg = str(exc_info.value)
+        assert "first change" in error_msg
+        assert "second change" in error_msg
+
+
+class TestBuildTurnResultNonZeroExitError:
+    """Tests for non-zero exit code error message content."""
+
+    def test_nonzero_exit_includes_exit_code(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 42)
+
+        error_msg = str(exc_info.value)
+        assert "42" in error_msg
+        assert "exit" in error_msg.lower()
+
+    def test_nonzero_exit_includes_log_file_path(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 1)
+
+        assert str(turn.log_file) in str(exc_info.value)
+
+
+class TestBuildTurnResultSignalError:
+    """Tests for signal termination error message content."""
+
+    def test_signal_termination_detected(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, -15)  # SIGTERM
+
+        error_msg = str(exc_info.value)
+        assert "signal" in error_msg.lower()
+        assert "SIGTERM" in error_msg
+
+
+class TestBuildTurnResultAncestryMismatchError:
+    """Tests for ancestry mismatch error."""
+
+    def test_ancestry_mismatch_error_raised(
+        self, session_with_git: tuple[Session, Git, Driver, Path]
+    ) -> None:
+        session, git, driver, repo = session_with_git
+        make_commit(git, "initial")
+        turn = make_turn(driver, git, repo)
+
+        # Simulate agent switching to orphan branch
+        subprocess.run(
+            ["git", "checkout", "--orphan", "orphan"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        (repo / "orphan.txt").write_text("orphan content")
+        subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "orphan commit"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+
+        with pytest.raises(RuntimeError) as exc_info:
+            session.build_turn_result(turn, 0)
+
+        error_msg = str(exc_info.value)
+        assert "ancestry path" in error_msg.lower()
+        assert "HEAD" in error_msg

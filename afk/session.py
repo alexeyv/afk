@@ -212,29 +212,29 @@ class Session:
         self._next_turn_number += 1
         return n
 
-    def current_turn_result(
+    def build_turn_result(
         self,
+        turn: Turn,
         exit_code: int,
-        log_file: str,
-        head_before: str | None,
-    ) -> tuple[str | None, str, str]:
-        """Determine the turn result from execution state.
+    ) -> TurnResult:
+        """Build TurnResult from execution state.
 
-        Examines exit code and git state to determine what happened during
-        turn execution. Override in subclasses for custom validation policies.
+        Validates exit code and git state, then constructs TurnResult.
+        Override in subclasses for custom validation policies.
 
         Args:
+            turn: The Turn being completed (provides metadata and log file).
             exit_code: Exit code from driver.run().
-            log_file: Path to the turn log file.
-            head_before: HEAD commit hash captured before execution (None for empty repo).
 
         Returns:
-            Tuple of (outcome, commit_hash, message).
+            Completed TurnResult.
 
         Raises:
             RuntimeError: For zero commits, multiple commits, non-zero exit,
                           signal termination, or other validation failures.
         """
+        log_file = str(turn.log_file)
+        head_before = turn.head_before
         # Check exit code first
         if exit_code != 0:
             if exit_code < 0:
@@ -263,7 +263,7 @@ class Session:
         # Parse outcome from commit message
         outcome, message = self._git.parse_commit_message(commit_hash)
 
-        return (outcome, commit_hash, message)
+        return turn.finish(outcome, commit_hash, message)
 
     def execute_turn(self, prompt: str, transition_type: TransitionType) -> TurnResult:
         """Execute a turn and record it in the session.
@@ -278,14 +278,7 @@ class Session:
 
         try:
             exit_code = turn.execute(prompt)
-            log_file_path = str(turn.log_file)
-
-            # Determine turn result from execution state
-            outcome, commit_hash, message = self.current_turn_result(
-                exit_code, log_file_path, turn.head_before
-            )
-
-            result = turn.finish(outcome, commit_hash, message)
+            result = self.build_turn_result(turn, exit_code)
         except Exception as e:
             turn.abort(e)
             # abort() re-raises, so this line is never reached
