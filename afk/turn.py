@@ -35,33 +35,6 @@ class Turn:
     MAX_TURN_NUMBER: ClassVar[int] = 100_000
     _next_number: ClassVar[int] = 1
 
-    @classmethod
-    def next_turn_number(cls, resume_from: int | None = None) -> int:
-        """Return and increment the next turn number.
-
-        Args:
-            resume_from: If provided, resume counting from this number.
-                         Returns this number and sets next to resume_from + 1.
-        """
-        if resume_from is not None:
-            if resume_from < 1:
-                raise ValueError(f"resume_from must be >= 1, got {resume_from}")
-            if resume_from >= cls.MAX_TURN_NUMBER:
-                raise ValueError(f"resume_from {resume_from} >= {cls.MAX_TURN_NUMBER}")
-            cls._next_number = resume_from + 1
-            return resume_from
-
-        n = cls._next_number
-        if n >= cls.MAX_TURN_NUMBER:
-            raise ValueError(f"turn_number {n} >= {cls.MAX_TURN_NUMBER}")
-        cls._next_number += 1
-        return n
-
-    @classmethod
-    def reset_turn_counter(cls) -> None:
-        """Reset turn counter to 1 (for testing)."""
-        cls._next_number = 1
-
     def __init__(self, driver: Driver, git: Git, session_root: Path) -> None:
         """Create a new Turn in Initial state.
 
@@ -88,6 +61,36 @@ class Turn:
         self._transition_type: TransitionType | None = None
         self._timestamp: datetime | None = None
         self._head_before: str | None = None
+
+    def __repr__(self) -> str:
+        return f"Turn(number={self._number}, state={self._state.name})"
+
+    @classmethod
+    def next_turn_number(cls, resume_from: int | None = None) -> int:
+        """Return and increment the next turn number.
+
+        Args:
+            resume_from: If provided, resume counting from this number.
+                         Returns this number and sets next to resume_from + 1.
+        """
+        if resume_from is not None:
+            if resume_from < 1:
+                raise ValueError(f"resume_from must be >= 1, got {resume_from}")
+            if resume_from >= cls.MAX_TURN_NUMBER:
+                raise ValueError(f"resume_from {resume_from} >= {cls.MAX_TURN_NUMBER}")
+            cls._next_number = resume_from + 1
+            return resume_from
+
+        n = cls._next_number
+        if n >= cls.MAX_TURN_NUMBER:
+            raise ValueError(f"turn_number {n} >= {cls.MAX_TURN_NUMBER}")
+        cls._next_number += 1
+        return n
+
+    @classmethod
+    def reset_turn_counter(cls) -> None:
+        """Reset turn counter to 1 (for testing)."""
+        cls._next_number = 1
 
     @property
     def number(self) -> int:
@@ -231,6 +234,3 @@ class Turn:
 
         self._state = TurnState.ABORTED
         raise exception
-
-    def __repr__(self) -> str:
-        return f"Turn(number={self._number}, state={self._state.name})"

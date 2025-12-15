@@ -44,11 +44,8 @@ class TurnLog:
         self._session_root = session_root
         self._init_log_file()
 
-    def _init_log_file(self) -> None:
-        """Create fresh log file with START marker."""
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        with open(self.path, "w") as f:
-            f.write(f"=== Turn {self._turn_number} START ===\n")
+    def __repr__(self) -> str:
+        return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._session_root!r})"
 
     @property
     def filename(self) -> str:
@@ -71,5 +68,8 @@ class TurnLog:
         with open(self.path, "a") as f:
             f.write(message + "\n")
 
-    def __repr__(self) -> str:
-        return f"TurnLog({self._turn_number}, {self._transition_type!r}, {self._session_root!r})"
+    def _init_log_file(self) -> None:
+        """Create fresh log file with START marker."""
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "w") as f:
+            f.write(f"=== Turn {self._turn_number} START ===\n")

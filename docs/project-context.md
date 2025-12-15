@@ -52,6 +52,7 @@ outcome: success
 
 - `snake_case` for functions, variables, modules
 - `PascalCase` for classes
+- **Class method ordering:** (1) class attributes, (2) `__init__`, (3) other dunders (`__repr__`, `__iter__`, etc.), (4) `@classmethod`s, (5) `@staticmethod`s, (6) `@property` methods, (7) public methods, (8) private methods (`_underscore`)
 - No circular dependencies—fix the design, don't work around with `TYPE_CHECKING` hacks
 - No exception hierarchy—use `RuntimeError` for explicit errors
 - Never wrap library exceptions—let them propagate with full stack trace

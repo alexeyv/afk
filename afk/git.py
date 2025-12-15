@@ -7,17 +7,6 @@ class Git:
     def __init__(self, repo_path: str):
         self.repo_path = repo_path
 
-    def _run(self, *args: str) -> str:
-        result = subprocess.run(
-            ["git", *args],
-            cwd=self.repo_path,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
-        return result.stdout.strip()
-
     def head_commit(self) -> Optional[str]:
         result = subprocess.run(
             ["git", "rev-parse", "--verify", "--quiet", "HEAD"],
@@ -114,3 +103,14 @@ class Git:
             return []
 
         return output.split("\n")
+
+    def _run(self, *args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=self.repo_path,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
+        return result.stdout.strip()
