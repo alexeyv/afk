@@ -126,6 +126,8 @@ class Session:
     starting from 1.
     """
 
+    MAX_TURN_NUMBER: int = 100_000
+
     def __init__(self, root_dir: Path, driver: Driver, git: Git) -> None:
         self._validate_root_dir(root_dir)
         self._validate_driver(driver)
@@ -134,6 +136,7 @@ class Session:
         self._driver = driver
         self._git = git
         self._turns: list[TurnResult] = []
+        self._next_turn_number = 1
 
     def __repr__(self) -> str:
         return f"Session(root_dir={self._root_dir}, turns={len(self._turns)})"
@@ -181,6 +184,33 @@ class Session:
     def turns(self) -> tuple[TurnResult, ...]:
         """Immutable view of all turns in chronological order."""
         return tuple(self._turns)
+
+    def allocate_turn_number(self, resume_from: int | None = None) -> int:
+        """Allocate and return the next turn number.
+
+        Args:
+            resume_from: If provided, resume counting from this number.
+                         Returns this number and sets next to resume_from + 1.
+
+        Returns:
+            The allocated turn number.
+
+        Raises:
+            ValueError: If resume_from is invalid or number exceeds maximum.
+        """
+        if resume_from is not None:
+            if resume_from < 1:
+                raise ValueError(f"resume_from must be >= 1, got {resume_from}")
+            if resume_from >= self.MAX_TURN_NUMBER:
+                raise ValueError(f"resume_from {resume_from} >= {self.MAX_TURN_NUMBER}")
+            self._next_turn_number = resume_from + 1
+            return resume_from
+
+        n = self._next_turn_number
+        if n >= self.MAX_TURN_NUMBER:
+            raise ValueError(f"turn_number {n} >= {self.MAX_TURN_NUMBER}")
+        self._next_turn_number += 1
+        return n
 
     def current_turn_result(
         self,
@@ -242,8 +272,9 @@ class Session:
         and records the TurnResult. Only records on success. Exceptions
         propagate after logging ABORT.
         """
+        turn_number = self.allocate_turn_number()
         turn = Turn(self._driver, self._git, self._root_dir)
-        turn.start(transition_type)
+        turn.start(turn_number, transition_type)
 
         try:
             exit_code = turn.execute(prompt)

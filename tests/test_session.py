@@ -9,16 +9,9 @@ from afk.driver import Driver
 from afk.git import Git
 from afk.session import Session
 from afk.transition_type import TransitionType
-from afk.turn import Turn
 from afk.turn_result import TurnResult
 
 FIXED_TIME = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-
-
-@pytest.fixture(autouse=True)
-def reset_turn_counter() -> None:
-    """Reset Turn counter before each test."""
-    Turn.reset_turn_counter()
 
 
 def make_result(n: int, transition_type: str = "coding") -> TurnResult:
@@ -488,3 +481,60 @@ class TestSessionLogging:
         assert "=== Turn 1 END: success ===" in log1_content
         assert "=== Turn 2 START ===" in log2_content
         assert "=== Turn 2 END: success ===" in log2_content
+
+
+class TestSessionAllocateTurnNumber:
+    """Tests for Session.allocate_turn_number() method."""
+
+    def test_sequential_allocation(self, session_env: tuple[Path, Driver, Git]) -> None:
+        """allocate_turn_number returns sequential numbers starting at 1."""
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
+
+        assert session.allocate_turn_number() == 1
+        assert session.allocate_turn_number() == 2
+        assert session.allocate_turn_number() == 3
+
+    def test_resume_from_specific_number(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """allocate_turn_number(resume_from=N) returns N and continues from N+1."""
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
+
+        n = session.allocate_turn_number(resume_from=10)
+        assert n == 10
+        assert session.allocate_turn_number() == 11
+
+    def test_resume_from_rejects_zero(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """allocate_turn_number(resume_from=0) raises."""
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
+
+        with pytest.raises(ValueError, match="resume_from must be >= 1"):
+            session.allocate_turn_number(resume_from=0)
+
+    def test_resume_from_rejects_max(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """allocate_turn_number(resume_from=MAX) raises."""
+        root_dir, driver, git = session_env
+        session = Session(root_dir, driver, git)
+
+        with pytest.raises(ValueError, match="resume_from"):
+            session.allocate_turn_number(resume_from=Session.MAX_TURN_NUMBER)
+
+    def test_separate_sessions_have_independent_counters(
+        self, session_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """Each Session instance has its own independent counter."""
+        root_dir, driver, git = session_env
+        session1 = Session(root_dir, driver, git)
+        session2 = Session(root_dir, driver, git)
+
+        assert session1.allocate_turn_number() == 1
+        assert session1.allocate_turn_number() == 2
+        assert session2.allocate_turn_number() == 1  # Independent counter
+        assert session1.allocate_turn_number() == 3

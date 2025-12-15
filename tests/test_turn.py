@@ -10,12 +10,6 @@ from afk.transition_type import TransitionType
 from afk.turn import Turn, TurnState
 
 
-@pytest.fixture(autouse=True)
-def reset_turn_counter() -> None:
-    """Reset Turn counter before each test."""
-    Turn.reset_turn_counter()
-
-
 def fake_claude_noop(tmp_path: Path) -> Path:
     """Create a no-op fake claude CLI script. Returns bin dir for PATH injection."""
     fake_bin = tmp_path / "fake_bin"
@@ -78,16 +72,15 @@ class TestTurnStateMachine:
         turn = Turn(driver, git, root_dir)
         assert turn.state == TurnState.INITIAL
 
-    def test_turn_allocates_number_on_start(
+    def test_turn_uses_provided_number_on_start(
         self, turn_env: tuple[Path, Driver, Git]
     ) -> None:
-        """Turn number is allocated when Turn is started (not created)."""
+        """Turn uses the number provided to start()."""
         root_dir, driver, git = turn_env
         turn1 = Turn(driver, git, root_dir)
         turn2 = Turn(driver, git, root_dir)
-        # Numbers are not allocated until start()
-        turn1.start(TransitionType("init"))
-        turn2.start(TransitionType("coding"))
+        turn1.start(1, TransitionType("init"))
+        turn2.start(2, TransitionType("coding"))
         assert turn1.number == 1
         assert turn2.number == 2
 
@@ -97,14 +90,14 @@ class TestTurnStateMachine:
         """start() transitions from INITIAL to IN_PROGRESS."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
         assert turn.state == TurnState.IN_PROGRESS
 
     def test_start_creates_log_file(self, turn_env: tuple[Path, Driver, Git]) -> None:
         """start() creates the log file with START marker."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("init"))
+        turn.start(1, TransitionType("init"))
 
         assert turn.log_file.exists()
         content = turn.log_file.read_text()
@@ -116,7 +109,7 @@ class TestTurnStateMachine:
         """start() captures HEAD for later validation."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         assert turn.head_before is not None
         assert len(turn.head_before) == 40  # SHA-1 hash
@@ -125,10 +118,10 @@ class TestTurnStateMachine:
         """start() raises if Turn is not in INITIAL state."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         with pytest.raises(RuntimeError, match="Cannot start.*IN_PROGRESS"):
-            turn.start(TransitionType("coding"))
+            turn.start(2, TransitionType("coding"))
 
     def test_execute_requires_in_progress(
         self, turn_env: tuple[Path, Driver, Git]
@@ -146,7 +139,7 @@ class TestTurnStateMachine:
         """execute() returns the driver's exit code."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         exit_code = turn.execute("test prompt")
         assert exit_code == 0
@@ -157,7 +150,7 @@ class TestTurnStateMachine:
         """finish() transitions from IN_PROGRESS to FINISHED."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         turn.finish("success", "abc123", "test message")
         assert turn.state == TurnState.FINISHED
@@ -168,7 +161,7 @@ class TestTurnStateMachine:
         """finish() returns a frozen TurnResult."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         result = turn.finish("success", "abc123", "test message")
 
@@ -183,7 +176,7 @@ class TestTurnStateMachine:
         """finish() writes END marker to log."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
         turn.finish("success", "abc123", "test message")
 
         content = turn.log_file.read_text()
@@ -205,7 +198,7 @@ class TestTurnStateMachine:
         """abort() transitions from IN_PROGRESS to ABORTED."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         with pytest.raises(RuntimeError, match="test error"):
             turn.abort(RuntimeError("test error"))
@@ -216,7 +209,7 @@ class TestTurnStateMachine:
         """abort() writes ABORT marker to log."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         with pytest.raises(RuntimeError):
             turn.abort(RuntimeError("something failed"))
@@ -229,7 +222,7 @@ class TestTurnStateMachine:
         """abort() re-raises the passed exception."""
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
 
         original_error = ValueError("original error")
         with pytest.raises(ValueError, match="original error"):
@@ -282,7 +275,34 @@ class TestTurnValidation:
         root_dir, driver, git = turn_env
         turn = Turn(driver, git, root_dir)
         with pytest.raises(TypeError, match="expected TransitionType"):
-            turn.start("coding")  # type: ignore[arg-type]
+            turn.start(1, "coding")  # type: ignore[arg-type]
+
+    def test_start_rejects_non_int_turn_number(
+        self, turn_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """start() requires int for turn_number."""
+        root_dir, driver, git = turn_env
+        turn = Turn(driver, git, root_dir)
+        with pytest.raises(TypeError, match="expected int"):
+            turn.start("1", TransitionType("coding"))  # type: ignore[arg-type]
+
+    def test_start_rejects_zero_turn_number(
+        self, turn_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """start() rejects turn_number < 1."""
+        root_dir, driver, git = turn_env
+        turn = Turn(driver, git, root_dir)
+        with pytest.raises(ValueError, match="must be >= 1"):
+            turn.start(0, TransitionType("coding"))
+
+    def test_start_rejects_max_turn_number(
+        self, turn_env: tuple[Path, Driver, Git]
+    ) -> None:
+        """start() rejects turn_number >= MAX_TURN_NUMBER."""
+        root_dir, driver, git = turn_env
+        turn = Turn(driver, git, root_dir)
+        with pytest.raises(ValueError, match=">="):
+            turn.start(Turn.MAX_TURN_NUMBER, TransitionType("coding"))
 
     def test_log_file_raises_before_start(
         self, turn_env: tuple[Path, Driver, Git]
@@ -294,44 +314,15 @@ class TestTurnValidation:
             _ = turn.log_file
 
 
-class TestTurnNumberAllocation:
-    def test_sequential_allocation(self, turn_env: tuple[Path, Driver, Git]) -> None:
-        """Turn numbers are allocated sequentially on start()."""
-        root_dir, driver, git = turn_env
-        turns = [Turn(driver, git, root_dir) for _ in range(5)]
-        # Start each turn to allocate numbers
-        for i, turn in enumerate(turns):
-            turn.start(TransitionType("coding"))
-        numbers = [t.number for t in turns]
-        assert numbers == [1, 2, 3, 4, 5]
-
-    def test_resume_from_specific_number(
+class TestTurnNumberValidation:
+    def test_turn_accepts_any_valid_number(
         self, turn_env: tuple[Path, Driver, Git]
     ) -> None:
-        """next_turn_number(resume_from=N) returns N and continues from N+1."""
+        """Turn accepts any valid turn number from caller."""
         root_dir, driver, git = turn_env
-        turn1 = Turn(driver, git, root_dir)
-        turn1.start(TransitionType("init"))  # allocates 1
-        turn2 = Turn(driver, git, root_dir)
-        turn2.start(TransitionType("coding"))  # allocates 2
-
-        # Resume from 10
-        n = Turn.next_turn_number(resume_from=10)
-        assert n == 10
-
         turn = Turn(driver, git, root_dir)
-        turn.start(TransitionType("coding"))
-        assert turn.number == 11
-
-    def test_resume_from_rejects_zero(self, turn_env: tuple[Path, Driver, Git]) -> None:
-        """next_turn_number(resume_from=0) raises."""
-        with pytest.raises(ValueError, match="resume_from must be >= 1"):
-            Turn.next_turn_number(resume_from=0)
-
-    def test_resume_from_rejects_max(self, turn_env: tuple[Path, Driver, Git]) -> None:
-        """next_turn_number(resume_from=MAX) raises."""
-        with pytest.raises(ValueError, match="resume_from"):
-            Turn.next_turn_number(resume_from=Turn.MAX_TURN_NUMBER)
+        turn.start(42, TransitionType("coding"))
+        assert turn.number == 42
 
 
 class TestTurnRepr:
@@ -347,7 +338,7 @@ class TestTurnRepr:
         assert "number=None" in repr_str  # No number before start()
         assert "INITIAL" in repr_str
 
-        turn.start(TransitionType("coding"))
+        turn.start(1, TransitionType("coding"))
         repr_str = repr(turn)
         assert "number=1" in repr_str
         assert "IN_PROGRESS" in repr_str

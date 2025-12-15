@@ -33,7 +33,6 @@ class Turn:
     """
 
     MAX_TURN_NUMBER: ClassVar[int] = 100_000
-    _next_number: ClassVar[int] = 1
 
     def __init__(self, driver: Driver, git: Git, session_root: Path) -> None:
         """Create a new Turn in Initial state.
@@ -65,33 +64,6 @@ class Turn:
     def __repr__(self) -> str:
         return f"Turn(number={self._number}, state={self._state.name})"
 
-    @classmethod
-    def next_turn_number(cls, resume_from: int | None = None) -> int:
-        """Return and increment the next turn number.
-
-        Args:
-            resume_from: If provided, resume counting from this number.
-                         Returns this number and sets next to resume_from + 1.
-        """
-        if resume_from is not None:
-            if resume_from < 1:
-                raise ValueError(f"resume_from must be >= 1, got {resume_from}")
-            if resume_from >= cls.MAX_TURN_NUMBER:
-                raise ValueError(f"resume_from {resume_from} >= {cls.MAX_TURN_NUMBER}")
-            cls._next_number = resume_from + 1
-            return resume_from
-
-        n = cls._next_number
-        if n >= cls.MAX_TURN_NUMBER:
-            raise ValueError(f"turn_number {n} >= {cls.MAX_TURN_NUMBER}")
-        cls._next_number += 1
-        return n
-
-    @classmethod
-    def reset_turn_counter(cls) -> None:
-        """Reset turn counter to 1 (for testing)."""
-        cls._next_number = 1
-
     @property
     def number(self) -> int:
         """Return the turn number. Raises if not started."""
@@ -120,26 +92,34 @@ class Turn:
         """Return HEAD commit hash captured at start(). None for empty repo."""
         return self._head_before
 
-    def start(self, transition_type: TransitionType) -> None:
+    def start(self, turn_number: int, transition_type: TransitionType) -> None:
         """Transition from Initial to InProgress.
 
         Creates the TurnLog and writes START marker.
 
         Args:
+            turn_number: The turn number allocated by Session.
             transition_type: The type of transition for this turn.
 
         Raises:
             RuntimeError: If not in Initial state.
-            TypeError: If transition_type is not a TransitionType.
+            TypeError: If turn_number or transition_type have wrong types.
+            ValueError: If turn_number is out of valid range.
         """
         if self._state != TurnState.INITIAL:
             raise RuntimeError(
                 f"Cannot start: Turn is in {self._state.name} state, expected INITIAL"
             )
+        if not isinstance(turn_number, int):
+            raise TypeError(f"expected int for turn_number, got {turn_number!r}")
+        if turn_number < 1:
+            raise ValueError(f"turn_number must be >= 1, got {turn_number}")
+        if turn_number >= self.MAX_TURN_NUMBER:
+            raise ValueError(f"turn_number {turn_number} >= {self.MAX_TURN_NUMBER}")
         if not isinstance(transition_type, TransitionType):
             raise TypeError(f"expected TransitionType, got {transition_type!r}")
 
-        self._number = self.next_turn_number()  # Allocate here to prevent leaks
+        self._number = turn_number
         self._transition_type = transition_type
         self._timestamp = datetime.now(timezone.utc)
         self._head_before = self._git.head_commit()
