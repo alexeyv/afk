@@ -119,6 +119,8 @@ This may indicate the agent switched branches or reset HEAD."""
 
 
 class Session:
+    __slots__ = ("_root_dir", "_driver", "_git", "_turns", "_next_turn_number")
+
     """Tracks all turns in sequence for a session run.
 
     A mutable container that stores TurnResult instances and provides
@@ -305,7 +307,8 @@ class Session:
         """
         prev = 0
         for t in self._turns:
-            assert t.turn_number > prev, "Turns not monotonic"
+            if t.turn_number <= prev:
+                raise RuntimeError("internal error: turns not monotonic")
             if t.turn_number == n:
                 return t
             if t.turn_number > n:

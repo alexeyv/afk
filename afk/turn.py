@@ -2,7 +2,6 @@ import traceback
 from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
-from typing import ClassVar
 
 from afk.driver import Driver
 from afk.git import Git
@@ -21,6 +20,18 @@ class TurnState(Enum):
 
 
 class Turn:
+    __slots__ = (
+        "_driver",
+        "_git",
+        "_session_root",
+        "_number",
+        "_state",
+        "_turn_log",
+        "_transition_type",
+        "_timestamp",
+        "_head_before",
+    )
+
     """Mutable state machine representing an active turn.
 
     Lifecycle:
@@ -31,8 +42,6 @@ class Turn:
     The Turn owns its lifecycle and logging. Session creates a Turn,
     calls start(), execute(), then finish() or abort().
     """
-
-    MAX_TURN_NUMBER: ClassVar[int] = 100_000
 
     def __init__(self, driver: Driver, git: Git, session_root: Path) -> None:
         """Create a new Turn in Initial state.
@@ -114,8 +123,6 @@ class Turn:
             raise TypeError(f"expected int for turn_number, got {turn_number!r}")
         if turn_number < 1:
             raise ValueError(f"turn_number must be >= 1, got {turn_number}")
-        if turn_number >= self.MAX_TURN_NUMBER:
-            raise ValueError(f"turn_number {turn_number} >= {self.MAX_TURN_NUMBER}")
         if not isinstance(transition_type, TransitionType):
             raise TypeError(f"expected TransitionType, got {transition_type!r}")
 
@@ -145,7 +152,8 @@ class Turn:
                 f"Cannot execute: Turn is in {self._state.name} state, expected IN_PROGRESS"
             )
 
-        assert self._turn_log is not None
+        if self._turn_log is None:
+            raise RuntimeError("internal error: _turn_log not set in IN_PROGRESS state")
         return self._driver.run(prompt, str(self._turn_log.path))
 
     def finish(self, outcome: str | None, commit_hash: str, message: str) -> TurnResult:
@@ -169,10 +177,18 @@ class Turn:
                 f"Cannot finish: Turn is in {self._state.name} state, expected IN_PROGRESS"
             )
 
-        assert self._number is not None
-        assert self._turn_log is not None
-        assert self._transition_type is not None
-        assert self._timestamp is not None
+        if self._number is None:
+            raise RuntimeError("internal error: _number not set in IN_PROGRESS state")
+        if self._turn_log is None:
+            raise RuntimeError("internal error: _turn_log not set in IN_PROGRESS state")
+        if self._transition_type is None:
+            raise RuntimeError(
+                "internal error: _transition_type not set in IN_PROGRESS state"
+            )
+        if self._timestamp is None:
+            raise RuntimeError(
+                "internal error: _timestamp not set in IN_PROGRESS state"
+            )
 
         self._turn_log.log(f"=== Turn {self._number} END: {outcome} ===")
         self._state = TurnState.FINISHED

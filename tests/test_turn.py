@@ -295,15 +295,6 @@ class TestTurnValidation:
         with pytest.raises(ValueError, match="must be >= 1"):
             turn.start(0, TransitionType("coding"))
 
-    def test_start_rejects_max_turn_number(
-        self, turn_env: tuple[Path, Driver, Git]
-    ) -> None:
-        """start() rejects turn_number >= MAX_TURN_NUMBER."""
-        root_dir, driver, git = turn_env
-        turn = Turn(driver, git, root_dir)
-        with pytest.raises(ValueError, match=">="):
-            turn.start(Turn.MAX_TURN_NUMBER, TransitionType("coding"))
-
     def test_log_file_raises_before_start(
         self, turn_env: tuple[Path, Driver, Git]
     ) -> None:

@@ -10,6 +10,8 @@ from afk.transition_type import TransitionType
 
 
 class TurnLog:
+    __slots__ = ("_turn_number", "_transition_type", "_session_root")
+
     """Log file for a specific turn.
 
     Creates a fresh log file at instantiation with a START marker.

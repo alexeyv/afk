@@ -5,6 +5,8 @@ from typing import Optional
 
 
 class Git:
+    __slots__ = ("_repo_path",)
+
     def __init__(self, repo_path: str):
         if not isinstance(repo_path, str):
             raise RuntimeError(f"repo_path must be str, got {type(repo_path).__name__}")

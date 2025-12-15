@@ -59,12 +59,13 @@ outcome: success
 - Never dispatch on error type (no `except SomeError`)—catch-all or let it crash
 - Skip docstrings unless genuinely clarifying
 - No inline comments—put comments on the line above
-- **Asserts are always hard.** No `if __debug__:` anywhere. Fail fast, catch bugs early.
-- **Think through invariants.** When designing classes, identify what must always be true and make violations impossible or assert them.
+- **No assert statements.** Use explicit runtime checks. `python -O` removes asserts.
+- **Think through invariants.** When designing classes, identify what must always be true and make violations impossible or check them explicitly.
 - **Domain classes validate at boundaries.** Strict runtime type and value validation on all inputs to mutating methods (including constructors). Enforce class invariants at the end of every mutating method. Static type checking (pyright) doesn't run at runtime—domain classes must protect themselves.
 - **Dependency injection via constructor only.** No setter injection. Once constructed, dependencies don't change.
 - **Never iterate through live mutable collections.** Return a snapshot (tuple/copy) to prevent mid-iteration surprises.
 - **Domain classes must be good Python citizens.** Implement `__repr__` (always), plus `__iter__`, `__len__`, `__getitem__`, `__contains__` where semantically meaningful.
+- **All classes use `__slots__`.** Saves memory, catches typos, signals fixed structure.
 - **LLM output vs Python output.** LLM-generated values: treat as human input, be lenient. Python-generated values: validate at creation, throw if invalid.
 
 ### Project Structure
@@ -126,6 +127,7 @@ Type errors are bugs. Fix them, don't suppress them.
 
 - Don't create config files (YAML, TOML, etc.)—everything in Python code
 - Don't create exception hierarchies—just use RuntimeError
+- **No frozen dataclasses.** Plain classes with `__slots__` and read-only properties.
 - Don't add docstrings to obvious functions
 - Don't over-engineer—keep < 1000 LOC in framework core
 - Don't touch files outside the current task scope

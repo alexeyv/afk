@@ -1,4 +1,3 @@
-from dataclasses import FrozenInstanceError
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -23,7 +22,7 @@ def _make_result(**overrides) -> TurnResult:
     return TurnResult(**defaults)
 
 
-class TestTurnResultDataclass:
+class TestTurnResultBasics:
     def test_creates_turn_result_with_all_fields(self) -> None:
         ts = datetime.now(timezone.utc)
         log_file = Path("/logs/turn-00001-init.log")
@@ -47,9 +46,9 @@ class TestTurnResultDataclass:
         assert result.log_file == log_file
         assert result.timestamp == ts
 
-    def test_turn_result_is_frozen(self) -> None:
+    def test_turn_result_is_immutable(self) -> None:
         result = _make_result()
-        with pytest.raises(FrozenInstanceError):
+        with pytest.raises(AttributeError):
             result.outcome = "failure"  # type: ignore[misc]
 
     def test_turn_result_equality(self) -> None:
@@ -88,13 +87,9 @@ class TestTurnResultValidation:
         with pytest.raises(ValueError, match="turn_number must be >= 1"):
             _make_result(turn_number=-1)
 
-    def test_rejects_turn_number_at_max(self) -> None:
-        with pytest.raises(ValueError, match="turn_number must be < 100000"):
-            _make_result(turn_number=100000)
-
-    def test_accepts_turn_number_at_max_minus_one(self) -> None:
-        result = _make_result(turn_number=99999)
-        assert result.turn_number == 99999
+    def test_accepts_large_turn_number(self) -> None:
+        result = _make_result(turn_number=999999)
+        assert result.turn_number == 999999
 
     def test_rejects_string_transition_type(self) -> None:
         with pytest.raises(TypeError, match="expected TransitionType"):
@@ -115,6 +110,10 @@ class TestTurnResultValidation:
     def test_rejects_non_string_commit_hash(self) -> None:
         with pytest.raises(TypeError, match="expected str for commit_hash"):
             _make_result(commit_hash=123)  # type: ignore[arg-type]
+
+    def test_rejects_non_path_log_file(self) -> None:
+        with pytest.raises(TypeError, match="expected Path for log_file"):
+            _make_result(log_file="/logs/turn.log")  # type: ignore[arg-type]
 
     def test_rejects_relative_log_file(self) -> None:
         with pytest.raises(ValueError, match="absolute"):

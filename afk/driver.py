@@ -37,6 +37,8 @@ def _check_environment() -> None:
 
 
 class Driver:
+    __slots__ = ("_working_dir", "_model")
+
     def __init__(self, working_dir: Path, *, model: str | None = None):
         _check_environment()
         if not isinstance(working_dir, Path):
@@ -78,7 +80,8 @@ class Driver:
             #
             # KeyboardInterrupt propagates intentionally - user interrupts should
             # abort immediately. The log file preserves ^C for post-mortem.
-            assert proc.stdout is not None
+            if proc.stdout is None:
+                raise RuntimeError("internal error: stdout not captured")
             for line in proc.stdout:
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()
