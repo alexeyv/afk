@@ -99,16 +99,12 @@ classDiagram
         +log_dir Path
         +turns tuple~TurnResult~
         +execute_turn(prompt, transition_type) TurnResult
+        +current_turn_result(exit_code, log_file, head_before) tuple
         +add_turn(result)
         +turn(n) TurnResult
         +__iter__() Iterator~TurnResult~
         +__len__() int
         +__getitem__(n) TurnResult
-    }
-
-    class validate_turn_execution {
-        <<function>>
-        validate_turn_execution(git, exit_code, log_file, head_before) tuple
     }
 
     %% Composition (ownership)
@@ -127,9 +123,8 @@ classDiagram
 
     %% Dependencies (uses)
     Session ..> Turn : creates & orchestrates
-    Session ..> validate_turn_execution : calls
+    Session ..> Git : queries commits via current_turn_result()
     Turn ..> Driver : invokes run()
-    validate_turn_execution ..> Git : queries commits
 ```
 
 ## Relationship Legend
@@ -154,13 +149,7 @@ classDiagram
 | **TransitionType** | Validated state label (e.g., "init", "coding") | Yes (value object) |
 | **Turn** | Mutable state machine for active turn execution | No (state machine) |
 | **TurnLog** | Manages log file paths and writes turn lifecycle events | No |
-| **Session** | Orchestrates turns, owns driver, git, and stores TurnResult history | No |
-
-### Function
-
-| Function | Purpose |
-|----------|---------|
-| **validate_turn_execution** | Post-execution validation - checks exit code, detects commits, returns result tuple |
+| **Session** | Orchestrates turns, owns driver, git, and stores TurnResult history. `current_turn_result()` is an extension point for custom validation policies. | No |
 
 ## Turn State Machine
 
@@ -209,7 +198,7 @@ Session.execute_turn(prompt, transition_type)
     |       +-> Driver.run()           // execute prompt
     |       +-> returns exit code
     |
-    +-> validate_turn_execution(git, exit_code, log_file, head_before)
+    +-> session.current_turn_result(exit_code, log_file, head_before)
     |       |
     |       +-> checks exit code
     |       +-> Git.head_commit()      // after
@@ -251,4 +240,4 @@ Session.execute_turn(prompt, transition_type)
 | **Turn.execute/finish/abort()** | State is IN_PROGRESS |
 | **TurnLog** | Construction: number range, type, Path for session_root |
 | **Session** | Construction: absolute directory path, valid Driver, valid Git |
-| **validate_turn_execution** | Runtime: exactly one commit, zero exit code, ancestry path |
+| **Session.current_turn_result()** | Runtime: exactly one commit, zero exit code, ancestry path |
