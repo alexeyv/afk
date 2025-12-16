@@ -58,8 +58,8 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: State Recovery & Rewind
-  epic-3: backlog
-  3-1-agent-vs-user-commit-tracking: backlog
+  epic-3: in-progress
+  3-1-agent-vs-user-commit-tracking: in-progress
   3-2-rewind-to-previous-turn: backlog
   3-3-restart-from-rewound-state: backlog
   epic-3-retrospective: optional
