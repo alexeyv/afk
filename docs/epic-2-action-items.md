@@ -8,11 +8,11 @@ Generated: 2025-12-13
 
 **Problem Statement:**
 
-Code review improvements discovered during Epic 2 (better review checklists, improved dedup guidance) need to be reflected in the Quick Dev workflow for use in Epic 2.5.
+Code review improvements discovered during Epic 2 (better review checklists, improved dedup guidance) need to be reflected in the Quick Dev workflow.
 
 **Owner:** Alex
 
-**Timeline:** Before Epic 2.5
+**Timeline:** Before Epic 3
 
 **Acceptance Criteria:**
 - [ ] Update Quick Dev workflow with review improvements from Epic 2
@@ -22,7 +22,7 @@ Code review improvements discovered during Epic 2 (better review checklists, imp
 
 ---
 
-## Action Item 2: Epic 2.5 - Domain Model Cleanup (Quick Flow)
+## Action Item 2: Domain Model Cleanup
 
 **Problem Statement:**
 
@@ -36,20 +36,18 @@ Design smells identified during Epic 2 that need cleanup before Epic 3:
 | Naked paths | `str`/`Path` everywhere | Should pass structured objects |
 | Naked turn numbers | Raw `int` scattered | Should be `TurnNumber` value class |
 
-**Decision:** Execute domain model cleanup via Quick Flow before Epic 3.
-
 **Owner:** Alex
 
 **Timeline:** Before Epic 3
 
 **Acceptance Criteria:**
-- [ ] `Turn.log_file` references `TurnLog` instance
-- [ ] `TurnLog` renamed or refactored for clarity
-- [ ] Resolve `execute_turn` naming collision
-- [ ] Replace naked paths with structured objects where appropriate
-- [ ] Introduce `TurnNumber` value class
+- [x] `Turn.log_file` references `TurnLog` instance
+- [x] `TurnLog` renamed or refactored for clarity
+- [x] Resolve `execute_turn` naming collision
+- [x] Replace naked paths with structured objects where appropriate
+- [x] Introduce `TurnNumber` value class
 
-**Status:** Pending
+**Status:** Complete (2025-12-15) - Handled via quick dev flows and manual refactoring, not as a formal epic.
 
 ---
 
