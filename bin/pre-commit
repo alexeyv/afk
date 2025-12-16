@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Skip checks for docs-only commits
+STAGED_FILES=$(git diff --cached --name-only)
+if [ -n "$STAGED_FILES" ]; then
+    NON_DOCS=$(echo "$STAGED_FILES" | grep -v -E '^(docs/|\.claude/|_bmad/)' || true)
+    if [ -z "$NON_DOCS" ]; then
+        echo "Docs-only commit, skipping quality checks."
+        exit 0
+    fi
+fi
+
 echo "Running quality checks..."
 
 echo "  ruff check..."
