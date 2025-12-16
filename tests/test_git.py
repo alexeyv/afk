@@ -266,3 +266,133 @@ class TestHeadCommitErrors:
 
         with pytest.raises(RuntimeError, match="Not a git repository"):
             git.head_commit()
+
+
+# =============================================================================
+# Tests for Git repo initialization and tagging methods (Story 3.1)
+# =============================================================================
+
+
+class TestGitIsRepo:
+    """Tests for Git.is_repo() method."""
+
+    def test_returns_true_for_git_repo(self, git_repo: Git) -> None:
+        """is_repo() returns True for initialized git repository."""
+        assert git_repo.is_repo() is True
+
+    def test_returns_false_for_non_repo(self, tmp_path: Path) -> None:
+        """is_repo() returns False for non-git directory."""
+        git = Git(str(tmp_path))
+        assert git.is_repo() is False
+
+
+class TestGitInit:
+    """Tests for Git.init() method."""
+
+    def test_initializes_new_repo(self, tmp_path: Path) -> None:
+        """init() creates a new git repository."""
+        git = Git(str(tmp_path))
+        assert git.is_repo() is False
+
+        git.init()
+
+        assert git.is_repo() is True
+
+
+class TestGitCommitEmpty:
+    """Tests for Git.commit_empty() method."""
+
+    def test_creates_empty_commit(self, git_repo: Git) -> None:
+        """commit_empty() creates commit with given message and returns hash."""
+        commit_hash = git_repo.commit_empty("test: empty commit")
+
+        assert commit_hash is not None
+        assert len(commit_hash) >= 40
+        assert git_repo.head_commit() == commit_hash
+        message = git_repo.commit_message(commit_hash)
+        assert "test: empty commit" in message
+
+
+class TestGitIsEmptyDirectory:
+    """Tests for Git.is_empty_directory() method."""
+
+    def test_returns_true_for_empty_dir(self, tmp_path: Path) -> None:
+        """is_empty_directory() returns True for empty directory."""
+        git = Git(str(tmp_path))
+        assert git.is_empty_directory() is True
+
+    def test_returns_false_for_dir_with_files(self, tmp_path: Path) -> None:
+        """is_empty_directory() returns False for directory with files."""
+        (tmp_path / "file.txt").write_text("content")
+        git = Git(str(tmp_path))
+        assert git.is_empty_directory() is False
+
+    def test_returns_true_for_git_repo_only(self, tmp_path: Path) -> None:
+        """is_empty_directory() returns True for dir with only .git folder."""
+        subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+        git = Git(str(tmp_path))
+        # Only .git exists, so "empty" from user content perspective
+        assert git.is_empty_directory() is True
+
+
+class TestGitTagExists:
+    """Tests for Git.tag_exists() method."""
+
+    def test_returns_false_for_nonexistent_tag(self, git_repo: Git) -> None:
+        """tag_exists() returns False when tag doesn't exist."""
+        make_commit(git_repo, "initial")
+        assert git_repo.tag_exists("nonexistent-tag") is False
+
+    def test_returns_true_for_existing_tag(self, git_repo: Git, tmp_path: Path) -> None:
+        """tag_exists() returns True when tag exists."""
+        commit_hash = make_commit(git_repo, "initial")
+        subprocess.run(
+            ["git", "tag", "v1.0.0", commit_hash],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+        assert git_repo.tag_exists("v1.0.0") is True
+
+
+class TestGitTag:
+    """Tests for Git.tag() method."""
+
+    def test_creates_tag_pointing_to_commit(
+        self, git_repo: Git, tmp_path: Path
+    ) -> None:
+        """tag() creates lightweight tag pointing to specified commit."""
+        commit_hash = make_commit(git_repo, "initial")
+
+        git_repo.tag("my-tag", commit_hash)
+
+        assert git_repo.tag_exists("my-tag") is True
+        # Verify tag points to correct commit
+        tag_commit = subprocess.run(
+            ["git", "rev-parse", "my-tag"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert tag_commit == commit_hash
+
+    def test_raises_if_tag_already_exists(self, git_repo: Git, tmp_path: Path) -> None:
+        """tag() raises RuntimeError if tag already exists (pre-check)."""
+        commit_hash = make_commit(git_repo, "initial")
+        subprocess.run(
+            ["git", "tag", "existing-tag", commit_hash],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+        with pytest.raises(RuntimeError, match="Tag already exists"):
+            git_repo.tag("existing-tag", commit_hash)
+
+    def test_raises_on_invalid_commit(self, git_repo: Git) -> None:
+        """tag() raises RuntimeError for invalid commit hash."""
+        make_commit(git_repo, "initial")
+
+        with pytest.raises(RuntimeError):
+            git_repo.tag("bad-tag", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")

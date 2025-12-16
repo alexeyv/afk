@@ -121,6 +121,50 @@ class Git:
 
         return output.split("\n")
 
+    def is_repo(self) -> bool:
+        """Check if the directory is a git repository."""
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            cwd=self._repo_path,
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+
+    def init(self) -> None:
+        """Initialize a new git repository."""
+        self._run("init")
+
+    def commit_empty(self, message: str) -> str:
+        """Create an empty commit with the given message and return its hash."""
+        self._run("commit", "--allow-empty", "-m", message)
+        commit_hash = self.head_commit()
+        if commit_hash is None:
+            raise RuntimeError("Failed to create empty commit")
+        return commit_hash
+
+    def is_empty_directory(self) -> bool:
+        """Check if directory has no files/subdirs (excluding .git)."""
+        repo_path = Path(self._repo_path)
+        for item in repo_path.iterdir():
+            if item.name != ".git":
+                return False
+        return True
+
+    def tag_exists(self, name: str) -> bool:
+        """Check if a tag with the given name exists."""
+        output = self._run("tag", "-l", name)
+        return bool(output.strip())
+
+    def tag(self, name: str, commit_hash: str) -> None:
+        """Create a lightweight tag pointing to the specified commit.
+
+        Raises RuntimeError if tag already exists (checked before attempting).
+        """
+        if self.tag_exists(name):
+            raise RuntimeError(f"Tag already exists: {name}")
+        self._run("tag", name, commit_hash)
+
     def _run(self, *args: str) -> str:
         result = subprocess.run(
             ["git", *args],

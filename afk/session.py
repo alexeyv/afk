@@ -1,3 +1,4 @@
+import re
 import signal
 from pathlib import Path
 from typing import Iterator
@@ -115,7 +116,7 @@ This may indicate the agent switched branches or reset HEAD."""
 
 
 class Session:
-    __slots__ = ("_root_dir", "_driver", "_git", "_turns", "_next_turn_number")
+    __slots__ = ("_root_dir", "_name", "_driver", "_git", "_turns", "_next_turn_number")
 
     """Tracks all turns in sequence for a session run.
 
@@ -126,18 +127,21 @@ class Session:
 
     MAX_TURN_NUMBER: int = 100_000
 
-    def __init__(self, root_dir: Path, driver: Driver, git: Git) -> None:
+    def __init__(self, root_dir: Path, name: str, driver: Driver, git: Git) -> None:
         self._validate_root_dir(root_dir)
+        self._validate_name(name)
         self._validate_driver(driver)
         self._validate_git(git)
         self._root_dir = root_dir
+        self._name = name
         self._driver = driver
         self._git = git
         self._turns: list[TurnResult] = []
         self._next_turn_number = 1
+        self._initialize_workspace()
 
     def __repr__(self) -> str:
-        return f"Session(root_dir={self._root_dir}, turns={len(self._turns)})"
+        return f"Session(name={self._name!r}, root_dir={self._root_dir}, turns={len(self._turns)})"
 
     def __iter__(self) -> Iterator[TurnResult]:
         """Iterate over turns in chronological order."""
@@ -159,6 +163,17 @@ class Session:
             raise ValueError(f"root_dir must be a directory: {root_dir}")
 
     @staticmethod
+    def _validate_name(name: str) -> None:
+        if not isinstance(name, str):
+            raise TypeError(f"expected str for name, got {name!r}")
+        if not name:
+            raise ValueError("name cannot be empty")
+        if len(name) > 64:
+            raise ValueError("name cannot exceed 64 characters")
+        if not re.match(r"^[a-zA-Z0-9_]+$", name):
+            raise ValueError("name must contain only alphanumerics and underscores")
+
+    @staticmethod
     def _validate_driver(driver: Driver) -> None:
         if not isinstance(driver, Driver):
             raise TypeError(f"expected Driver, got {driver!r}")
@@ -168,10 +183,31 @@ class Session:
         if not isinstance(git, Git):
             raise TypeError(f"expected Git, got {git!r}")
 
+    def _initialize_workspace(self) -> None:
+        """Initialize workspace: ensure git repo exists and tag session start."""
+        if not self._git.is_repo():
+            if self._git.is_empty_directory():
+                self._git.init()
+                self._git.commit_empty(f"afk: session {self._name} initialized")
+            else:
+                raise RuntimeError("Directory is not a git repo and not empty")
+
+        head = self._git.head_commit()
+        if head is None:
+            raise RuntimeError("Session requires at least one commit")
+
+        tag_name = f"afk-{self._name}-0"
+        self._git.tag(tag_name, head)
+
     @property
     def root_dir(self) -> Path:
         """Return the session root directory."""
         return self._root_dir
+
+    @property
+    def name(self) -> str:
+        """Return the session name."""
+        return self._name
 
     @property
     def log_dir(self) -> Path:

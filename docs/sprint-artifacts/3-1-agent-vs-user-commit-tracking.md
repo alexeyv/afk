@@ -27,16 +27,16 @@ So that I can identify turn boundaries and rewind to any completed turn.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add session name and tag session start (AC: #1, #2)
-  - [ ] Add `_name: str` to Session `__slots__`
-  - [ ] Add `name` parameter to `__init__` (required, positional after root_dir)
-  - [ ] Add `_validate_name()` static method:
+- [x] Task 1: Add session name and tag session start (AC: #1, #2)
+  - [x] Add `_name: str` to Session `__slots__`
+  - [x] Add `name` parameter to `__init__` (required, positional after root_dir)
+  - [x] Add `_validate_name()` static method:
     - Reject if not str
     - Reject if empty
     - Reject if length > 64 characters
     - Reject if not matching `^[a-zA-Z0-9_]+$` (alphanumerics and underscore only)
     - This ensures valid git tag names and simple, predictable session identifiers
-  - [ ] In `__init__`, after validation, initialize workspace:
+  - [x] In `__init__`, after validation, initialize workspace:
     - Check if root_dir is a git repo via `git rev-parse --git-dir`
     - If NOT a git repo:
       - If directory is empty → `git init` + `git commit --allow-empty -m "afk: session {name} initialized"`
@@ -45,11 +45,11 @@ So that I can identify turn boundaries and rewind to any completed turn.
     - If None (empty repo but somehow no commit) → RuntimeError("Session requires at least one commit")
     - Tag HEAD as `afk-{name}-0` via `self._git.tag()` (uses pre-check)
     - If tag exists → RuntimeError (enforces unique session name per repo)
-  - [ ] Add `@property name` (read-only)
-  - [ ] Update `__repr__` to include name
-  - [ ] Add tests for all validation cases
-  - [ ] Add test: empty repo raises RuntimeError
-  - [ ] Add test: session creation tags HEAD as `afk-{name}-0`
+  - [x] Add `@property name` (read-only)
+  - [x] Update `__repr__` to include name
+  - [x] Add tests for all validation cases
+  - [x] Add test: empty repo raises RuntimeError
+  - [x] Add test: session creation tags HEAD as `afk-{name}-0`
 
 - [ ] Task 2: Add Git methods for repo initialization and tagging (AC: #2)
   - [ ] Implement `is_repo() -> bool`
