@@ -219,27 +219,15 @@ class Session:
         """Immutable view of all turns in chronological order."""
         return tuple(self._turns)
 
-    def allocate_turn_number(self, resume_from: int | None = None) -> int:
+    def allocate_turn_number(self) -> int:
         """Allocate and return the next turn number.
-
-        Args:
-            resume_from: If provided, resume counting from this number.
-                         Returns this number and sets next to resume_from + 1.
 
         Returns:
             The allocated turn number.
 
         Raises:
-            ValueError: If resume_from is invalid or number exceeds maximum.
+            ValueError: If number exceeds maximum.
         """
-        if resume_from is not None:
-            if resume_from < 1:
-                raise ValueError(f"resume_from must be >= 1, got {resume_from}")
-            if resume_from >= self.MAX_TURN_NUMBER:
-                raise ValueError(f"resume_from {resume_from} >= {self.MAX_TURN_NUMBER}")
-            self._next_turn_number = resume_from + 1
-            return resume_from
-
         n = self._next_turn_number
         if n >= self.MAX_TURN_NUMBER:
             raise ValueError(f"turn_number {n} >= {self.MAX_TURN_NUMBER}")
@@ -305,8 +293,17 @@ class Session:
         Creates a Turn, executes via Driver, resolves the turn result,
         and records the TurnResult. Only records on success. Exceptions
         propagate after logging ABORT.
+
+        Tags the commit with afk-{session_name}-{turn_number} after completion.
+        Pre-checks tag existence before starting the turn (fail fast).
         """
         turn_number = self.allocate_turn_number()
+        tag_name = f"afk-{self._name}-{turn_number}"
+
+        # Pre-check tag existence before starting turn (fail fast, no wasted work)
+        if self._git.tag_exists(tag_name):
+            raise RuntimeError(f"Tag already exists: {tag_name}")
+
         turn = Turn(self._driver, self._git, self._root_dir)
         turn.start(turn_number, transition_type)
 
@@ -319,6 +316,8 @@ class Session:
             raise  # for type checker
 
         self._add_result(result)
+        # Tag AFTER _add_result — if tagging fails, session still knows about the turn
+        self._git.tag(tag_name, result.commit_hash)
         return result
 
     def add_turn(self, result: TurnResult) -> None:

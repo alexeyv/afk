@@ -511,37 +511,6 @@ class TestSessionAllocateTurnNumber:
         assert session.allocate_turn_number() == 2
         assert session.allocate_turn_number() == 3
 
-    def test_resume_from_specific_number(
-        self, session_env: tuple[Path, Driver, Git]
-    ) -> None:
-        """allocate_turn_number(resume_from=N) returns N and continues from N+1."""
-        root_dir, driver, git = session_env
-        session = make_session(root_dir, driver, git)
-
-        n = session.allocate_turn_number(resume_from=10)
-        assert n == 10
-        assert session.allocate_turn_number() == 11
-
-    def test_resume_from_rejects_zero(
-        self, session_env: tuple[Path, Driver, Git]
-    ) -> None:
-        """allocate_turn_number(resume_from=0) raises."""
-        root_dir, driver, git = session_env
-        session = make_session(root_dir, driver, git)
-
-        with pytest.raises(ValueError, match="resume_from must be >= 1"):
-            session.allocate_turn_number(resume_from=0)
-
-    def test_resume_from_rejects_max(
-        self, session_env: tuple[Path, Driver, Git]
-    ) -> None:
-        """allocate_turn_number(resume_from=MAX) raises."""
-        root_dir, driver, git = session_env
-        session = make_session(root_dir, driver, git)
-
-        with pytest.raises(ValueError, match="resume_from"):
-            session.allocate_turn_number(resume_from=Session.MAX_TURN_NUMBER)
-
 
 # =============================================================================
 # Tests for Session.build_turn_result()
@@ -1041,3 +1010,108 @@ class TestSessionRepr:
         repr_str = repr(session)
         assert "my_session" in repr_str
         assert "Session" in repr_str
+
+
+# =============================================================================
+# Tests for Session turn tagging (Story 3.1 Task 3)
+# =============================================================================
+
+
+class TestSessionTurnTagging:
+    """Tests for tagging commits after turn completion."""
+
+    def test_execute_turn_creates_tag_after_completion(
+        self, execute_session: Session
+    ) -> None:
+        """execute_turn() creates tag afk-{name}-{turn_number} after turn completion."""
+        result = execute_session.execute_turn("test prompt", TransitionType("init"))
+
+        # Session name is "execute_test", turn number is 1
+        git = Git(str(execute_session.root_dir))
+        assert git.tag_exists("afk-execute_test-1")
+
+        # Verify tag points to the correct commit
+        tag_commit = subprocess.run(
+            ["git", "rev-parse", "afk-execute_test-1"],
+            cwd=execute_session.root_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert tag_commit == result.commit_hash
+
+    def test_execute_turn_creates_sequential_tags(
+        self, execute_session: Session
+    ) -> None:
+        """Sequential execute_turn() calls create tags with incrementing numbers."""
+        r1 = execute_session.execute_turn("prompt 1", TransitionType("init"))
+        r2 = execute_session.execute_turn("prompt 2", TransitionType("coding"))
+        r3 = execute_session.execute_turn("prompt 3", TransitionType("coding"))
+
+        git = Git(str(execute_session.root_dir))
+        assert git.tag_exists("afk-execute_test-1")
+        assert git.tag_exists("afk-execute_test-2")
+        assert git.tag_exists("afk-execute_test-3")
+
+        # Verify tags point to correct commits
+        for i, result in enumerate([r1, r2, r3], start=1):
+            tag_commit = subprocess.run(
+                ["git", "rev-parse", f"afk-execute_test-{i}"],
+                cwd=execute_session.root_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            assert tag_commit == result.commit_hash
+
+    def test_preexisting_tag_causes_immediate_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pre-existing tag causes RuntimeError BEFORE turn.start()."""
+        # Set up repo
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-m", "initial"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+
+        fake_bin = fake_claude_with_commit(tmp_path, repo)
+        monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
+
+        git = Git(str(repo))
+        driver = Driver(repo)
+        session = Session(repo, "collision_test", driver, git)
+
+        # Pre-create the tag that would be used for turn 1
+        head = git.head_commit()
+        subprocess.run(
+            ["git", "tag", "afk-collision_test-1", head],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+
+        # execute_turn should fail immediately (before turn.start())
+        with pytest.raises(
+            RuntimeError, match="Tag already exists.*afk-collision_test-1"
+        ):
+            session.execute_turn("test prompt", TransitionType("init"))
+
+        # No turn should have been recorded (failed before execution)
+        assert len(session) == 0

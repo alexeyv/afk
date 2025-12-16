@@ -74,7 +74,7 @@ classDiagram
         +execute(prompt) int
         +finish(outcome, commit_hash, message) TurnResult
         +abort(exception) void
-        +next_turn_number(resume_from)$ int
+        +allocate_turn_number()$ int
         +reset_turn_counter()$ void
         +MAX_TURN_NUMBER$ int
     }

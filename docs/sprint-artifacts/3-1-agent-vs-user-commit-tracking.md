@@ -1,6 +1,6 @@
 # Story 3.1: Session Naming and Turn Tagging
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -51,26 +51,26 @@ So that I can identify turn boundaries and rewind to any completed turn.
   - [x] Add test: empty repo raises RuntimeError
   - [x] Add test: session creation tags HEAD as `afk-{name}-0`
 
-- [ ] Task 2: Add Git methods for repo initialization and tagging (AC: #2)
-  - [ ] Implement `is_repo() -> bool`
+- [x] Task 2: Add Git methods for repo initialization and tagging (AC: #2)
+  - [x] Implement `is_repo() -> bool`
     - Use `git rev-parse --git-dir`, return True if exit code 0
-  - [ ] Implement `init() -> None`
+  - [x] Implement `init() -> None`
     - Use `git init`
-  - [ ] Implement `commit_empty(message: str) -> str`
+  - [x] Implement `commit_empty(message: str) -> str`
     - Use `git commit --allow-empty -m {message}`
     - Return the new commit hash
-  - [ ] Implement `is_empty_directory() -> bool`
+  - [x] Implement `is_empty_directory() -> bool`
     - Check if repo_path has no files/subdirs (excluding .git)
-  - [ ] Implement `tag_exists(name: str) -> bool`
+  - [x] Implement `tag_exists(name: str) -> bool`
     - Use `git tag -l {name}` and check if output is non-empty
-  - [ ] Implement `tag(name: str, commit_hash: str) -> None`
+  - [x] Implement `tag(name: str, commit_hash: str) -> None`
     - First call `tag_exists(name)` — if True, raise RuntimeError with clear message
     - Then `git tag {name} {commit_hash}`
     - Raise RuntimeError if git command fails
-  - [ ] Add tests for all new methods
+  - [x] Add tests for all new methods
 
-- [ ] Task 3: Tag commit after turn completion (AC: #2)
-  - [ ] In `Session.execute_turn()`, new flow:
+- [x] Task 3: Tag commit after turn completion (AC: #2)
+  - [x] In `Session.execute_turn()`, new flow:
     ```
     1. turn_number = allocate_turn_number()
     2. tag_name = f"afk-{self._name}-{turn_number}"
@@ -82,20 +82,20 @@ So that I can identify turn boundaries and rewind to any completed turn.
     8. self._git.tag(tag_name, result.commit_hash)  # AFTER _add_result
     9. return result
     ```
-  - [ ] Pre-check tag existence BEFORE turn.start() — fail fast, no wasted work
-  - [ ] Tag AFTER _add_result() — if tagging fails, session still knows about the turn
-  - [ ] Add integration test: execute turn, verify tag exists pointing to correct commit
-  - [ ] Add test: pre-existing tag causes immediate RuntimeError before turn starts
+  - [x] Pre-check tag existence BEFORE turn.start() — fail fast, no wasted work
+  - [x] Tag AFTER _add_result() — if tagging fails, session still knows about the turn
+  - [x] Add integration test: execute turn, verify tag exists pointing to correct commit
+  - [x] Add test: pre-existing tag causes immediate RuntimeError before turn starts
 
-- [ ] Task 4: Remove `resume_from` parameter from allocate_turn_number()
-  - [ ] Delete `resume_from` parameter and all related logic
-  - [ ] Simplify to just sequential allocation: return N, increment to N+1
-  - [ ] Remove any tests for resume_from behavior
-  - [ ] Rationale: Invalid for tagging design. MVP has no resume — start fresh sessions.
+- [x] Task 4: Remove `resume_from` parameter from allocate_turn_number()
+  - [x] Delete `resume_from` parameter and all related logic
+  - [x] Simplify to just sequential allocation: return N, increment to N+1
+  - [x] Remove any tests for resume_from behavior
+  - [x] Rationale: Invalid for tagging design. MVP has no resume — start fresh sessions.
 
-- [ ] Task 5: Update all existing tests
-  - [ ] Update all Session instantiations to include name parameter
-  - [ ] Use descriptive test names like "test_session" or similar
+- [x] Task 5: Update all existing tests
+  - [x] Update all Session instantiations to include name parameter
+  - [x] Use descriptive test names like "test_session" or similar
 
 ## Dev Notes
 
@@ -248,10 +248,22 @@ User picks unique names. Framework enforces via tag-0 check at creation time.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
+None required.
+
 ### Completion Notes List
 
+- Task 2: Git methods (is_repo, init, commit_empty, is_empty_directory, tag_exists, tag) were implemented as part of Task 1; added comprehensive tests
+- Task 3: Implemented turn tagging in execute_turn() with pre-check for tag existence (fail fast) and tagging after _add_result() (session knows about turn even if tagging fails)
+- Task 4: Removed resume_from parameter from allocate_turn_number(); simplified to pure sequential allocation; removed 3 related tests; updated domain-model.md
+- Task 5: Verified all Session instantiations already include name parameter (completed during Task 1)
+
 ### File List
+
+- afk/session.py (modified: execute_turn() adds turn tagging, allocate_turn_number() simplified)
+- tests/test_session.py (modified: added TestSessionTurnTagging tests, removed resume_from tests)
+- docs/domain-model.md (modified: removed resume_from from allocate_turn_number signature)
+- docs/sprint-artifacts/3-1-agent-vs-user-commit-tracking.md (modified: task checkboxes, status, dev record)
