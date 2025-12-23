@@ -40,23 +40,62 @@ Run `/bmad:bmm:workflows:sprint-planning` to generate it, then rerun sprint-stat
   - Epics: keys starting with "epic-" (and not ending with "-retrospective")
   - Retrospectives: keys ending with "-retrospective"
   - Stories: everything else (e.g., 1-2-login-form)
-  <action>If any story has status `drafted`, treat as `ready-for-dev` (legacy status)</action>
+  <action>Map legacy story status "drafted" → "ready-for-dev"</action>
   <action>Count story statuses: backlog, ready-for-dev, in-progress, review, done</action>
-  <action>Count epic statuses: backlog, contexted</action>
-  <action>Detect risks:</action>
-  - Stories in review but no reviewer assigned context → suggest `/bmad:bmm:workflows:code-review`
-  - Stories in in-progress with no ready-for-dev items behind them → keep focus on the active story
-  - All epics backlog/contexted but no stories ready-for-dev → prompt to run `/bmad:bmm:workflows:create-story`
-  - Stories in ready-for-dev may be unvalidated → suggest `/bmad:bmm:workflows:validate-create-story` before `dev-story` for quality check
-</step>
+  <action>Map legacy epic status "contexted" → "in-progress"</action>
+  <action>Count epic statuses: backlog, in-progress, done</action>
+  <action>Count retrospective statuses: optional, done</action>
+
+<action>Validate all statuses against known values:</action>
+
+- Valid story statuses: backlog, ready-for-dev, in-progress, review, done, drafted (legacy)
+- Valid epic statuses: backlog, in-progress, done, contexted (legacy)
+- Valid retrospective statuses: optional, done
+
+  <check if="any status is unrecognized">
+    <output>
+⚠️ **Unknown status detected:**
+{{#each invalid_entries}}
+
+- `{{key}}`: "{{status}}" (not recognized)
+  {{/each}}
+
+**Valid statuses:**
+
+- Stories: backlog, ready-for-dev, in-progress, review, done
+- Epics: backlog, in-progress, done
+- Retrospectives: optional, done
+  </output>
+  <ask>How should these be corrected?
+  {{#each invalid_entries}}
+  {{@index}}. {{key}}: "{{status}}" → [select valid status]
+  {{/each}}
+
+Enter corrections (e.g., "1=in-progress, 2=backlog") or "skip" to continue without fixing:</ask>
+<check if="user provided corrections">
+<action>Update sprint-status.yaml with corrected values</action>
+<action>Re-parse the file with corrected statuses</action>
+</check>
+</check>
+
+<action>Detect risks:</action>
+
+- IF any story has status "review": suggest `/bmad:bmm:workflows:code-review`
+- IF any story has status "in-progress" AND no stories have status "ready-for-dev": recommend staying focused on active story
+- IF all epics have status "backlog" AND no stories have status "ready-for-dev": prompt `/bmad:bmm:workflows:create-story`
+- IF `generated` timestamp is more than 7 days old: warn "sprint-status.yaml may be stale"
+- IF any story key doesn't match an epic pattern (e.g., story "5-1-..." but no "epic-5"): warn "orphaned story detected"
+- IF any epic has status in-progress but has no associated stories: warn "in-progress epic has no stories"
+  </step>
 
 <step n="3" goal="Select next action recommendation">
   <action>Pick the next recommended workflow using priority:</action>
+  <note>When selecting "first" story: sort by epic number, then story number (e.g., 1-1 before 1-2 before 2-1)</note>
   1. If any story status == in-progress → recommend `dev-story` for the first in-progress story
   2. Else if any story status == review → recommend `code-review` for the first review story
   3. Else if any story status == ready-for-dev → recommend `dev-story`
   4. Else if any story status == backlog → recommend `create-story`
-  5. Else if retrospectives are optional → recommend `retrospective`
+  5. Else if any retrospective status == optional → recommend `retrospective`
   6. Else → All implementation items done; suggest `workflow-status` to plan next phase
   <action>Store selected recommendation as: next_story_id, next_workflow_id, next_agent (SM/DEV as appropriate)</action>
 </step>
@@ -71,7 +110,7 @@ Run `/bmad:bmm:workflows:sprint-planning` to generate it, then rerun sprint-stat
 
 **Stories:** backlog {{count_backlog}}, ready-for-dev {{count_ready}}, in-progress {{count_in_progress}}, review {{count_review}}, done {{count_done}}
 
-**Epics:** backlog {{epic_backlog}}, contexted {{epic_contexted}}
+**Epics:** backlog {{epic_backlog}}, in-progress {{epic_in_progress}}, done {{epic_done}}
 
 **Next Recommendation:** /bmad:bmm:workflows:{{next_workflow_id}} ({{next_story_id}})
 
@@ -83,13 +122,6 @@ Run `/bmad:bmm:workflows:sprint-planning` to generate it, then rerun sprint-stat
   {{/each}}
   {{/if}}
 
-{{#if by_epic}}
-**Per Epic:**
-{{#each by_epic}}
-
-- {{epic_id}}: context={{context_status}}, stories → backlog {{backlog}}, ready {{ready_for_dev}}, in-progress {{in_progress}}, review {{review}}, done {{done}}
-  {{/each}}
-  {{/if}}
   </output>
   </step>
 
@@ -141,8 +173,9 @@ If the command targets a story, set `story_key={{next_story_id}}` when prompted.
   <template-output>count_review = {{count_review}}</template-output>
   <template-output>count_done = {{count_done}}</template-output>
   <template-output>epic_backlog = {{epic_backlog}}</template-output>
-  <template-output>epic_contexted = {{epic_contexted}}</template-output>
-  <template-output>warnings = {{risks}}</template-output>
+  <template-output>epic_in_progress = {{epic_in_progress}}</template-output>
+  <template-output>epic_done = {{epic_done}}</template-output>
+  <template-output>risks = {{risks}}</template-output>
   <action>Return to caller</action>
 </step>
 
@@ -158,15 +191,39 @@ If the command targets a story, set `story_key={{next_story_id}}` when prompted.
     <template-output>suggestion = "Run sprint-planning to create it"</template-output>
     <action>Return</action>
   </check>
-  <action>Read file and verify it has a development_status section with at least one entry</action>
-  <check if="validation fails">
-    <template-output>is_valid = false</template-output>
-    <template-output>error = "development_status missing or empty"</template-output>
-    <template-output>suggestion = "Re-run sprint-planning or repair the file manually"</template-output>
-    <action>Return</action>
+
+<action>Read and parse {sprint_status_file}</action>
+
+<action>Validate required metadata fields exist: generated, project, project_key, tracking_system, story_location</action>
+<check if="any required field missing">
+<template-output>is_valid = false</template-output>
+<template-output>error = "Missing required field(s): {{missing_fields}}"</template-output>
+<template-output>suggestion = "Re-run sprint-planning or add missing fields manually"</template-output>
+<action>Return</action>
+</check>
+
+<action>Verify development_status section exists with at least one entry</action>
+<check if="development_status missing or empty">
+<template-output>is_valid = false</template-output>
+<template-output>error = "development_status missing or empty"</template-output>
+<template-output>suggestion = "Re-run sprint-planning or repair the file manually"</template-output>
+<action>Return</action>
+</check>
+
+<action>Validate all status values against known valid statuses:</action>
+
+- Stories: backlog, ready-for-dev, in-progress, review, done (legacy: drafted)
+- Epics: backlog, in-progress, done (legacy: contexted)
+- Retrospectives: optional, done
+  <check if="any invalid status found">
+  <template-output>is_valid = false</template-output>
+  <template-output>error = "Invalid status values: {{invalid_entries}}"</template-output>
+  <template-output>suggestion = "Fix invalid statuses in sprint-status.yaml"</template-output>
+  <action>Return</action>
   </check>
-  <template-output>is_valid = true</template-output>
-  <template-output>message = "sprint-status.yaml present and parsable"</template-output>
+
+<template-output>is_valid = true</template-output>
+<template-output>message = "sprint-status.yaml valid: metadata complete, all statuses recognized"</template-output>
 </step>
 
 </workflow>
