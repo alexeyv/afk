@@ -1,4 +1,4 @@
-# generated: 2025-12-13
+# generated: 2025-12-16
 # project: afk
 # project_key: afk
 # tracking_system: file-system
@@ -34,7 +34,7 @@
 # - SM typically drafts next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2025-12-13
+generated: 2025-12-16
 project: afk
 project_key: afk
 tracking_system: file-system
@@ -57,34 +57,26 @@ development_status:
   2-4-turn-execution-integration: done
   epic-2-retrospective: done
 
-  # Epic 3: State Recovery & Rewind
-  epic-3: in-progress
-  3-1-agent-vs-user-commit-tracking: review
-  3-2-rewind-to-previous-turn: backlog
-  3-3-restart-from-rewound-state: backlog
+  # Epic 3: Session Naming & Git Tagging
+  epic-3: done
+  3-1-session-naming-and-turn-tagging: done
+  # 3-2, 3-3 obsolete - git checkout of tags handles rewind
   epic-3-retrospective: optional
 
-  # Epic 4: State Machine Orchestration
-  epic-4: backlog
-  4-1-state-and-transition-definitions: backlog
-  4-2-machine-definition-and-validation: backlog
-  4-3-machine-execution-loop: backlog
-  4-4-interrupt-and-resume: backlog
-  4-5-turn-limits: backlog
+  # Epic 4: Tracer Bullet (NEW - validates driver works)
+  epic-4: in-progress
+  4-1-tracer-bullet-hello-world-session: ready-for-dev
   epic-4-retrospective: optional
 
-  # Epic 5: CLI & Configuration
+  # Epic 5: Demo Recreation (NEW - MVP exit criterion)
   epic-5: backlog
-  5-1-cli-entry-point-and-basic-structure: backlog
-  5-2-headless-run-command: backlog
-  5-3-interactive-mode: backlog
-  5-4-status-and-inspection-commands: backlog
+  5-1-multi-turn-demo-session: backlog
+  5-2-readme-and-getting-started: backlog
   epic-5-retrospective: optional
 
-  # Epic 6: Project Setup & Templates
-  epic-6: backlog
-  6-1-package-structure-and-installation: backlog
-  6-2-trivial-loop-experiment: backlog
-  6-3-workspace-initialization: backlog
-  6-4-readme-and-getting-started: backlog
-  epic-6-retrospective: optional
+# SCOPE CHANGE NOTE (2025-12-16):
+# - Old Epics 4-6 (State Machine, CLI, Templates) REMOVED - out of scope
+# - Epic 3 stories 3.2, 3.3 OBSOLETE - tag-based design handles rewind via git
+# - New Epic 4: Tracer Bullet - prove driver works
+# - New Epic 5: Demo Recreation - MVP proof of value
+# - See docs/sprint-change-proposal-2025-12-16.md for full rationale

@@ -82,54 +82,41 @@ This document provides the complete epic and story breakdown for afk, decomposin
 | FR2 | Epic 1 | Real-time streaming |
 | FR3 | Epic 1 | Session logging |
 | FR4 | Epic 1 | Commit detection |
-| FR5 | Epic 1 | Return what agent produced |
-| FR6 | Epic 2 | Sequential turn numbers |
-| FR7 | Epic 2 | Transition type labeling |
-| FR8 | Epic 2 | Artifact naming by turn/type |
-| FR9 | Epic 2 | Reference turns by number |
-| FR10 | Epic 3 | Rewind to previous turn |
-| FR11 | Epic 3 | Restart from rewound state |
-| FR12 | Epic 3 | Track agent vs user commits |
-| FR13 | Epic 4 | Run trivial loop |
-| FR14 | Epic 4 | Define next prompt from results |
-| FR15 | Epic 4 | Terminal state handling |
-| FR16 | Epic 4 | Interrupt running loop |
-| FR17 | Epic 4 | Manual state setting |
-| FR18 | Epic 4 | Max turn configuration |
-| FR19 | Epic 5 | Interactive mode |
-| FR20 | Epic 5 | Headless mode |
-| FR21 | Epic 5 | Command-line flags |
-| FR22 | Deferred | .afk config file (per Architecture decision) |
-| FR23 | Deferred | Flags override file (per Architecture decision) |
-| FR24 | Epic 6 | Clone and run |
-| FR25 | Epic 6 | Scaffold new project |
-| FR26 | Epic 6 | Bundled prompts |
+| FR5 | Epic 1 | Return TurnResult |
+| FR6 | Epic 2, 3 | Create named Session |
+| FR7 | Epic 3 | Tag session start |
+| FR8 | Epic 2 | Sequential turn numbers |
+| FR9 | Epic 3 | Tag completed turns |
+| FR10 | Epic 3 | Rewind via tag checkout (git operation) |
+| FR11 | Epic 4, 5 | Clone repo and import library |
+| FR12 | Epic 5 | Example prompts with outcome signaling |
 
 ## Epic List
 
-### Epic 1: Core Prompt Execution
+### Epic 1: Core Prompt Execution ✅
 User can run a single prompt against Claude Code CLI and see what happens—real-time streaming, logging, and structured results back.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5
+**Status:** Done
 
-### Epic 2: Turn Tracking & Session Management
+### Epic 2: Turn Tracking & Session Management ✅
 User can run multiple prompts in sequence with each turn numbered, labeled, and logged separately—giving full observability into multi-turn sessions.
 **FRs covered:** FR6, FR7, FR8, FR9
+**Status:** Done
 
-### Epic 3: State Recovery & Rewind
-User can rewind to any previous turn's commit and restart from a clean state—the core workflow for "that went off the rails, let me try again."
-**FRs covered:** FR10, FR11, FR12
+### Epic 3: Session Naming & Git Tagging ✅
+Sessions have names, turns are tagged in git. Rewind = checkout tag + branch + new session.
+**FRs covered:** FR6, FR7, FR8, FR9, FR10
+**Status:** Done (Story 3.1 completed; Stories 3.2, 3.3 obsolete—git handles rewind)
 
-### Epic 4: State Machine Orchestration
-User can define a state machine (states, outcomes, transitions) and let the framework run it—from trivial loops to sophisticated graphs.
-**FRs covered:** FR13, FR14, FR15, FR16, FR17, FR18
+### Epic 4: Tracer Bullet
+Prove the driver actually works by running a minimal 1-turn session end-to-end against real Claude Code CLI.
+**FRs covered:** FR1-5 (validation), FR11
+**Status:** Backlog — IMMEDIATE PRIORITY
 
-### Epic 5: CLI & Configuration
-User can run afk interactively (menus) or headless (flags), with all options specified via command-line flags.
-**FRs covered:** FR19, FR20, FR21 (FR22, FR23 deferred per Architecture decision—no config files)
-
-### Epic 6: Project Setup & Templates
-User can clone-and-run or scaffold a new project, with bundled prompts ready to experiment.
-**FRs covered:** FR24, FR25, FR26
+### Epic 5: Demo Recreation
+Recreate the Anthropic autonomous-coding quickstart using afk, demonstrating full loop with git-recorded turn history.
+**FRs covered:** FR11, FR12, all FRs validated end-to-end
+**Status:** Backlog — MVP exit criterion
 
 ---
 
@@ -339,401 +326,127 @@ So that turn tracking is automatic during prompt execution.
 
 ---
 
-## Epic 3: State Recovery & Rewind
+## Epic 3: Session Naming & Git Tagging
 
-User can rewind to any previous turn's commit and restart from a clean state—the core workflow for "that went off the rails, let me try again."
+Sessions have names, turns are tagged in git. Rewind = checkout tag + branch + new session.
 
-### Story 3.1: Agent vs User Commit Tracking
+### Story 3.1: Session Naming and Turn Tagging ✅
+
+**Status:** Done
 
 As a framework user,
-I want the system to distinguish between commits made by the agent and commits made by me,
-So that I can understand what changes came from where.
+I want each session to have a name and each turn to be tagged in git,
+So that I can identify turn boundaries and rewind to any completed turn.
 
 **Acceptance Criteria:**
 
-**Given** a turn executes and the agent makes a commit
-**When** the turn completes
-**Then** the commit is recorded as agent-authored in the `Turn` instance
+1. **Given** I create a Session
+   **When** I pass a name parameter
+   **Then** the name is stored and accessible
+   **And** validation rejects: empty string, whitespace-only, multi-line, leading/trailing whitespace
 
-**Given** commits exist in the repo before a session starts
-**When** the `Session` begins
-**Then** those commits are recognized as pre-existing (not agent commits)
+2. **Given** a turn completes successfully
+   **When** the TurnResult is created
+   **Then** HEAD is tagged with `afk-{session_name}-{turn_number}`
+   **And** the tag points to the commit in TurnResult.commit_hash
 
-**Given** a `Session` with multiple turns
-**When** I query which commits were made by the agent
-**Then** I receive only commits made during turn executions
-**And** each commit is associated with its turn number
+3. **Given** a Session with completed turns
+   **When** I want to rewind to turn N
+   **Then** I can checkout tag `afk-{session_name}-{N}` and branch from it
 
-### Story 3.2: Rewind to Previous Turn
+### Stories 3.2 & 3.3: OBSOLETE
 
-As a framework user,
-I want to rewind the repository to a specific turn's commit,
-So that I can recover from bad agent output and try again.
+**Rationale:** The tag-based design implemented in Story 3.1 makes dedicated rewind/restart features unnecessary:
+- Rewind to turn N: `git checkout afk-{session}-{N}`
+- Restart from there: `git checkout -b new-branch && new Session("new_name")`
 
-**Acceptance Criteria:**
-
-**Given** a `Session` with turns 1, 2, 3 and their commits
-**When** I call `session.rewind_to_turn(2)`
-**Then** the repository is reset to turn 2's commit (hard reset)
-**And** turn 3's changes are discarded
-**And** the working directory matches the state after turn 2
-
-**Given** a rewind operation
-**When** it completes
-**Then** any uncommitted changes are discarded
-**And** the git log shows only commits up to the target turn
-
-**Given** an invalid turn number (e.g., turn 5 when only 3 exist)
-**When** I call `session.rewind_to_turn(5)`
-**Then** a `RuntimeError` is raised
-**And** the repository state is unchanged
-
-### Story 3.3: Restart from Rewound State
-
-As a framework user,
-I want to continue execution from a rewound state with fresh context,
-So that I can iterate on prompts without accumulated garbage.
-
-**Acceptance Criteria:**
-
-**Given** the repository has been rewound to turn 2
-**When** I execute a new turn
-**Then** the new turn is numbered 3 (continuing sequence)
-**And** the agent runs with fresh context (no memory of previous turn 3)
-**And** the previous turn 3 data is preserved in session history (marked as superseded)
-
-**Given** a rewound session
-**When** I review session history
-**Then** I can see the original turn 3 and the new turn 3
-**And** they are distinguishable (e.g., turn 3a, 3b or timestamps)
-
-**Given** multiple rewind-and-retry cycles
-**When** reviewing the session
-**Then** the full history of attempts is preserved
-**And** the current state is clearly indicated
+This is standard git workflow. The library provides tags; users do git operations.
 
 ---
 
-## Epic 4: State Machine Orchestration
+## Epic 4: Tracer Bullet
 
-User can define a state machine (states, outcomes, transitions) and let the framework run it—from trivial loops to sophisticated graphs.
+Prove the driver actually works by running a minimal 1-turn session end-to-end against real Claude Code CLI.
 
-### Story 4.1: State and Transition Definitions
+### Story 4.1: Tracer Bullet — Hello World Session
 
 As a framework developer,
-I want to define states with prompts and transition maps,
-So that I can describe how the machine should behave.
+I want to run a 1-turn session that creates a hello world script,
+So that I can validate the driver works end-to-end with real Claude Code CLI.
 
 **Acceptance Criteria:**
 
-**Given** I want to define a state
-**When** I create a `State` instance
-**Then** it has a name (string identifier)
-**And** it has a prompt (or prompt path)
-**And** it has a transition map (outcome → next state name)
+**Given** Claude Code CLI is installed and working
+**When** I create a Session and execute one turn with a simple prompt ("create hello.py that prints hello world")
+**Then** Claude Code runs, creates the file, commits with outcome
+**And** TurnResult contains the commit hash and outcome
+**And** Git tag `afk-{session}-1` exists pointing to the commit
 
-**Given** a `State` with transitions `{"success": "coding", "failure": "halt"}`
-**When** the outcome is "success"
-**Then** the next state is "coding"
+**Given** the tracer bullet succeeds
+**When** I inspect the workspace
+**Then** hello.py exists and runs correctly
+**And** git log shows the agent's commit with outcome footer
+**And** git tag shows session-0 and session-1 tags
 
-**Given** a `State` with no transitions defined (empty map)
-**When** the `Machine` reaches this state
-**Then** it is recognized as a terminal state
-
-**Given** a transition map references an undefined state
-**When** the `Machine` is validated
-**Then** a `RuntimeError` is raised before execution begins
-
-### Story 4.2: Machine Definition and Validation
-
-As a framework user,
-I want to define a complete `Machine` with multiple states,
-So that I can orchestrate complex agent workflows.
-
-**Acceptance Criteria:**
-
-**Given** multiple `State` definitions
-**When** I create a `Machine`
-**Then** it contains all states indexed by name
-**And** it has a designated start state
-
-**Given** a `Machine` definition
-**When** I call `machine.validate()`
-**Then** all state transitions point to valid states
-**And** the start state exists
-**And** at least one terminal state exists (reachable or not)
-
-**Given** the trivial loop (init → coding → coding...)
-**When** I define it as a `Machine`
-**Then** it has two states: "init" and "coding"
-**And** init transitions to coding on success
-**And** coding transitions to coding on success (self-loop)
-
-### Story 4.3: Machine Execution Loop
-
-As a framework user,
-I want the `Machine` to execute states automatically based on outcomes,
-So that I don't have to manually trigger each transition.
-
-**Acceptance Criteria:**
-
-**Given** a valid `Machine` and a `Session`
-**When** I call `machine.run(session)`
-**Then** execution starts at the start state
-**And** each state's prompt is executed as a turn
-**And** the outcome determines the next state
-**And** execution continues until a terminal state is reached
-
-**Given** a `Machine` running
-**When** a terminal state is reached (no transitions)
-**Then** execution stops
-**And** the final `Turn` result is returned
-
-**Given** a `Machine` execution
-**When** an exception occurs during a turn
-**Then** the `Machine` halts immediately
-**And** the exception propagates
-**And** all completed turns are preserved in the `Session`
-
-### Story 4.4: Interrupt and Resume
-
-As a framework user,
-I want to interrupt a running `Machine` and optionally resume or change state,
-So that I can intervene when something goes wrong.
-
-**Acceptance Criteria:**
-
-**Given** a `Machine` is running
-**When** I send SIGINT (Ctrl+C)
-**Then** the current turn is interrupted
-**And** the `Machine` stops after the current turn completes (or fails)
-**And** the `Session` state is preserved
-
-**Given** an interrupted `Machine`
-**When** I call `machine.resume(session)`
-**Then** execution continues from the current state
-**And** a new turn is started
-
-**Given** an interrupted `Machine`
-**When** I call `machine.set_state(session, "init")`
-**Then** the current state is changed to "init"
-**And** subsequent resume starts from "init"
-
-### Story 4.5: Turn Limits
-
-As a framework user,
-I want to configure a maximum number of turns,
-So that runaway loops don't execute forever.
-
-**Acceptance Criteria:**
-
-**Given** a `Machine` with max_turns=10
-**When** execution reaches turn 10
-**Then** execution halts after turn 10 completes
-**And** a `RuntimeError` is raised with message indicating max turns reached
-**And** all 10 turns are preserved in the `Session`
-
-**Given** a `Machine` with no max_turns configured
-**When** execution runs
-**Then** it continues until a terminal state or exception
-
-**Given** max_turns=5 and the `Machine` terminates at turn 3
-**When** execution completes
-**Then** no exception is raised (normal termination)
-**And** only 3 turns exist in the `Session`
+**Tasks:**
+- [ ] Create `examples/tracer_bullet.py` script
+- [ ] Create `examples/prompts/hello_world.md` with outcome signaling instructions
+- [ ] Run against real Claude Code CLI (not fake)
+- [ ] Document any driver issues discovered
+- [ ] Fix driver issues if found
+- [ ] Verify complete success before marking done
 
 ---
 
-## Epic 5: CLI & Configuration
+## Epic 5: Demo Recreation
 
-User can run afk interactively (menus) or headless (flags), with all options specified via command-line flags.
+Recreate the Anthropic autonomous-coding quickstart using afk, demonstrating full loop with git-recorded turn history.
 
-### Story 5.1: CLI Entry Point and Basic Structure
+### Story 5.1: Multi-Turn Demo Session
 
 As a framework user,
-I want a CLI entry point that parses arguments and routes to commands,
-So that I can invoke afk from the terminal.
+I want to recreate the Anthropic autonomous-coding demo using afk,
+So that I can validate the library works for real autonomous coding loops.
 
 **Acceptance Criteria:**
 
-**Given** afk is installed via `pip install -e .`
-**When** I run `afk` in terminal
-**Then** the CLI is invoked
-**And** help is displayed if no command given
+**Given** the tracer bullet (Epic 4) succeeded
+**When** I create a Session and run multiple turns mimicking the Anthropic demo flow
+**Then** each turn produces a commit with outcome
+**And** git tags mark every turn boundary
+**And** the final result matches what the Anthropic demo produces
 
-**Given** the CLI structure
-**When** I run `afk --help`
-**Then** I see available commands and global options
+**Given** the demo completes
+**When** I review the git history
+**Then** I can see every turn's commit with its outcome
+**And** I can checkout any turn tag and see the state at that point
+**And** the history tells the story of what happened
 
-**Given** click is used for CLI parsing
-**When** commands are defined
-**Then** they follow click patterns (decorators, options, arguments)
+**Tasks:**
+- [ ] Study Anthropic quickstart (prompts/initializer_prompt.md, prompts/coding_prompt.md)
+- [ ] Create `examples/anthropic_demo.py` that runs equivalent flow
+- [ ] Create equivalent prompts with outcome signaling
+- [ ] Run full demo, capture git history
+- [ ] Document the session in README as proof of concept
+- [ ] Verify git history is comprehensible and useful
 
-### Story 5.2: Headless Run Command
-
-As a framework user,
-I want to run a machine headlessly with flags,
-So that I can automate agent execution in scripts.
-
-**Acceptance Criteria:**
-
-**Given** a workspace directory and experiment module
-**When** I run `afk run --workspace ~/runs/test-001 --experiment trivial-loop`
-**Then** the experiment's machine is loaded
-**And** execution proceeds automatically
-**And** output streams to terminal
-**And** exit code reflects success (0) or failure (non-zero)
-
-**Given** headless mode
-**When** execution completes or fails
-**Then** no interactive prompts are shown
-**And** all output goes to stdout/stderr
-
-**Given** the `--max-turns` flag
-**When** I run `afk run --max-turns 5 ...`
-**Then** execution stops after 5 turns
-
-### Story 5.3: Interactive Mode
-
-As a framework user,
-I want an interactive mode with menus for exploration,
-So that I can experiment without memorizing flags.
-
-**Acceptance Criteria:**
-
-**Given** I run `afk` without commands
-**When** the CLI starts
-**Then** an interactive menu is displayed
-**And** I can select options by number or name
-
-**Given** interactive mode
-**When** I select "run experiment"
-**Then** I'm prompted for workspace path
-**And** I'm prompted for experiment selection
-**And** execution begins after confirmation
-
-**Given** interactive mode during execution
-**When** I press Ctrl+C
-**Then** a menu appears with options: continue, rewind, change state, quit
-
-### Story 5.4: Status and Inspection Commands
-
-As a framework user,
-I want commands to inspect session state,
-So that I can understand what happened during a run.
-
-**Acceptance Criteria:**
-
-**Given** a session exists in a workspace
-**When** I run `afk status --workspace ~/runs/test-001`
-**Then** I see current state, turn count, last outcome
-
-**Given** a session with turns
-**When** I run `afk log --workspace ~/runs/test-001 --turn 3`
-**Then** I see the log file contents for turn 3
-
-**Given** a session with turns
-**When** I run `afk history --workspace ~/runs/test-001`
-**Then** I see a summary of all turns (number, type, outcome, timestamp)
-
----
-
-## Epic 6: Project Setup & Templates
-
-User can clone-and-run or scaffold a new project, with bundled prompts ready to experiment.
-
-### Story 6.1: Package Structure and Installation
-
-As a framework user,
-I want to install afk and have the CLI available,
-So that I can start using it immediately after clone.
-
-**Acceptance Criteria:**
-
-**Given** I clone the afk repository
-**When** I run `pip install -e .`
-**Then** the `afk` command is available on PATH
-**And** the afk module is importable
-
-**Given** pyproject.toml exists
-**When** I inspect it
-**Then** it defines project metadata (name, version, description)
-**And** it defines dependencies (click, etc.)
-**And** it defines the `afk` script entry point
-
-**Given** a fresh clone
-**When** I run `pip install -e . && afk --help`
-**Then** the help message displays (no errors)
-
-### Story 6.2: Trivial Loop Experiment
-
-As a framework user,
-I want a bundled trivial-loop experiment,
-So that I can run my first experiment without writing any code.
-
-**Acceptance Criteria:**
-
-**Given** the afk repo is cloned
-**When** I look in `trivial-loop/`
-**Then** I find `run.py` (the experiment code)
-**And** I find `prompts/init.md` (initialization prompt)
-**And** I find `prompts/coding.md` (coding prompt)
-
-**Given** the trivial-loop experiment
-**When** I examine `run.py`
-**Then** it imports from afk module
-**And** it defines a Machine with init and coding states
-**And** init transitions to coding on success
-**And** coding transitions to coding on success (self-loop)
-
-**Given** the bundled prompts
-**When** I examine them
-**Then** they include outcome signaling instructions (commit with `outcome: success` or `outcome: failure` footer)
-**And** they include the commit message schema guidance
-
-### Story 6.3: Workspace Initialization
-
-As a framework user,
-I want to initialize a fresh workspace for an experiment,
-So that the agent works in isolation from the framework source.
-
-**Acceptance Criteria:**
-
-**Given** I want to run an experiment
-**When** I run `afk init --workspace ~/runs/test-001`
-**Then** the directory is created if it doesn't exist
-**And** a git repository is initialized in it
-**And** an initial commit is made (empty or with .gitignore)
-
-**Given** a workspace path that already exists and has commits
-**When** I run `afk init --workspace ~/runs/test-001`
-**Then** an error is raised (won't overwrite existing workspace)
-
-**Given** a fresh workspace
-**When** I run an experiment in it
-**Then** the agent only sees the workspace contents
-**And** the agent cannot see or modify the afk source
-
-### Story 6.4: README and Getting Started
+### Story 5.2: README & Getting Started
 
 As a potential user,
-I want a README that explains what afk does and how to try it,
-So that I can decide if it's useful and get started quickly.
+I want a README that shows afk working,
+So that I can understand what it does and try it myself.
 
 **Acceptance Criteria:**
 
 **Given** someone visits the repo
 **When** they read README.md
-**Then** they understand what afk is (autonomous coding agent framework)
-**And** they understand the core concept (run_prompt → result)
+**Then** they see what afk is (library for autonomous coding turns)
 **And** they see prerequisites (Python, Claude Code CLI, Claude Max)
+**And** they see the tracer bullet example
+**And** they see the demo recreation results (git history screenshot or log)
 
-**Given** the README
-**When** I follow the quickstart
-**Then** I can go from clone to running the trivial loop in < 5 minutes
-**And** each step is explicit (no assumed knowledge)
-
-**Given** the README
-**When** I want to learn more
-**Then** I find links to deeper documentation or examples
-**And** I understand how to create my own experiments
+**Tasks:**
+- [ ] Write README with clear value proposition
+- [ ] Include tracer bullet quickstart (< 5 minutes)
+- [ ] Show demo recreation results
+- [ ] Link to examples/ directory

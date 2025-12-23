@@ -1,6 +1,6 @@
 # Story 3.1: Session Naming and Turn Tagging
 
-Status: review
+Status: done
 
 ## Story
 

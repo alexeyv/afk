@@ -29,28 +29,28 @@ date: '2025-12-09'
 
 ## Executive Summary
 
-afk is a Python framework for autonomous coding agent loops. At its core: `run_prompt(prompt)` sends a prompt to Claude Code CLI, monitors the session in real-time, logs everything, and returns what the agent produced (a git commit, a document, or both).
+afk is a Python library for running autonomous coding agent turns. At its core: `session.execute_turn(prompt)` sends a prompt to Claude Code CLI, streams output, and returns what the agent produced (a git commit with outcome).
 
-The insight: Claude Code CLI on Claude Max ($100/month flat rate) makes extended autonomous coding economically viable. But there's no minimal harness to experiment with different loop shapes. You write the loop logic - which prompt to run next based on what came back. The framework handles the plumbing.
+The insight: Claude Code CLI on Claude Max ($100/month flat rate) makes extended autonomous coding economically viable. But there's no minimal harness to run prompts and track what happened. afk handles the plumbing—you write whatever loop or state machine logic you want on top.
 
-MVP ships with two prompts (Init and Coding) wired into a trivial loop. The framework's value is making it trivial to run any prompt and get structured output back.
+Git is the database. Each turn produces a commit. Git tags mark turn boundaries. Rewind = checkout a tag and branch. The framework is stateless—everything it needs is in git.
 
 ### What Makes This Special
 
-- **Simple core** - `run_prompt(prompt) → result`. You decide what to run next.
-- **Transparent execution** - Real-time streaming, logging, full observability of what the agent is doing.
-- **Structured output** - Agent work produces commits and/or documents. You get back what was created.
+- **Simple core** - `session.execute_turn(prompt) → TurnResult`. You decide what to run next.
+- **Git as source of truth** - Every turn tagged. Full history. Rewind by checkout.
+- **Transparent execution** - Real-time streaming, logging, full observability.
 - **Flat-rate economics** - Runs on Claude Max via Claude Code CLI, not metered API calls.
-- **Your loop, your logic** - Framework handles execution; you control the flow.
+- **Library, not framework** - No state machine abstraction. No CLI. Just turns.
 
 ## Project Classification
 
-**Technical Type:** CLI Tool / Developer Tool
+**Technical Type:** Python Library
 **Domain:** General (developer tooling)
 **Complexity:** Low
 **Project Context:** Greenfield - new project
 
-Target users are experienced developers with Claude Max subscriptions who want to experiment with autonomous coding loops without building the execution plumbing themselves.
+Target users are experienced developers with Claude Max subscriptions who want to run autonomous coding turns without building the execution plumbing themselves. Loop logic, state machines, orchestration—that's user code, not library concern.
 
 ## Success Criteria
 
@@ -89,25 +89,24 @@ The framework succeeds if it produces learning, not just code.
 
 ### MVP - Minimum Viable Product
 
-1. `run_prompt(prompt) → result` with real-time streaming and logging
-2. Git commit detection (return what the agent produced)
-3. Rewind to last good commit (recover from garbage, retry from clean state)
-4. Two prompts (Init, Coding) wired into a trivial loop
-5. Dual-mode CLI: interactive menus for exploration, headless flags for automation
+1. `session.execute_turn(prompt) → TurnResult` with real-time streaming and logging
+2. Git commit detection with outcome extraction from commit message
+3. Git tagging of session start and turn boundaries (rewind = checkout tag + branch)
+4. Tracer bullet: trivial 1-turn session proves driver works end-to-end
+5. Demo recreation: reproduce Anthropic autonomous-coding quickstart with full git history
 6. README that makes developers want to try it
 
 ### Growth Features (Post-MVP)
 
-- Review transitions
-- Human checkpoint transitions
-- Additional prompt templates
+- Structured commit message schema enforcement (beyond basic outcome parsing)
+- Pre-commit hooks for invariant validation
+- Additional example experiments
 
 ### Vision (Future)
 
-- Context scoping (control what each transition sees)
-- Structured commit message schema and enforcement
+- Dependency-graph walking experiments (lifecycle and cooperation graphs)
+- Context scoping (graph-neighborhood, ~2 layers)
 - Escalation logic (agent signals "I need help")
-- BMAD integration
 
 ## User Journeys
 
@@ -151,79 +150,44 @@ A slow walk with accumulated context might.
 
 **MVP doesn't build this.** MVP builds the scaffolding that makes experiments like this possible to try.
 
-## CLI Tool / Developer Tool Requirements
-
-### Command Interface
-
-**Dual-mode CLI:**
-- Interactive menus for exploration
-- Headless flags for automation
-
-**Configuration:**
-- Command-line flags for everything
-- `.afk` file in project root for persistent defaults
-- Flags override file settings
-
-### Installation & Setup
-
-- Clone the repo, or
-- Install and run scaffolding command to generate project skeleton
-- Prompts live in predefined location within project
-
-### Output Artifacts
-
-- **Terminal streaming:** Pass-through from Claude Code CLI (not controlled by afk)
-- **Log file:** One per session, agent writes whatever it wants, afk provides the filename
-- **Git commits:** Format guided by prompts (may use JSON-structured messages)
-- **Documents:** Agents exchange documents (likely JSON, possibly MD)
-
-### Post-MVP Considerations
-
-- Pre-commit hooks for commit format enforcement and invariant validation
-- Back pressure on agent at commit time - when it thinks it's done
-
 ## Project Scoping & Phased Development
 
 ### MVP Strategy
 
-**Approach:** Platform MVP - build the foundation for future experiments. The trivial loop proves the scaffolding works; it's not the product itself.
+**Approach:** Tracer bullet MVP - prove the core works end-to-end before anything else. Session executes turn, driver talks to Claude, commit comes back with outcome.
 
 **Resource:** Solo project. Scope must stay minimal.
 
 ### MVP Feature Set (Phase 1)
 
-1. `run_prompt(prompt) → result` with real-time streaming
-2. Git commit detection (return what the agent produced)
-3. Rewind to last good commit (recover from garbage, retry from clean state)
-4. Two prompts (Init, Coding) wired into trivial loop
-5. Dual-mode CLI (interactive menus + headless flags)
-6. `.afk` config file support
-7. Clone or scaffold install
-8. README that makes developers want to try it
+1. `session.execute_turn(prompt) → TurnResult` with real-time streaming
+2. Git commit detection with outcome extraction
+3. Git tagging of session and turn boundaries
+4. Tracer bullet validation (1-turn hello world session)
+5. Demo recreation (Anthropic quickstart with git history)
+6. README that makes developers want to try it
 
 ### Post-MVP Features (Phase 2)
 
-- Pre-commit hooks for format enforcement and invariant validation
-- Review transitions
-- Human checkpoint transitions
-- Additional prompt templates
+- Pre-commit hooks for commit format enforcement
+- Structured commit schema beyond basic outcome
+- Additional example experiments
 
 ### Vision (Phase 3)
 
 - Dependency-graph walking experiments (lifecycle and cooperation graphs)
 - Context scoping (graph-neighborhood, ~2 layers)
-- Structured commit schema enforcement
 - Escalation logic (agent signals "I need help")
 
 ### Risk Assessment
 
 **Technical Risks:**
-- Claude Agent SDK stability - mitigate by keeping driver abstraction clean
-- Claude Code CLI changes - same mitigation
+- Claude Code CLI changes - mitigate by keeping driver abstraction clean
+- Driver never actually tested - mitigate with tracer bullet as first priority
 
 **Market Risks:** N/A - personal experimentation tool
 
-**Resource Risks:** Solo project - scope creep is the main danger. Stay minimal.
+**Resource Risks:** Solo project - scope creep was the main danger. Now fixed.
 
 ## Functional Requirements
 
@@ -231,71 +195,42 @@ A slow walk with accumulated context might.
 
 - FR1: User can execute a prompt against Claude Code CLI and receive structured results
 - FR2: User can observe agent output in real-time as it streams to terminal
-- FR3: System logs agent session to a file identified by turn number and transition type
-- FR4: System detects git commits made by the agent during a session
-- FR5: System returns what the agent produced (commits, documents) after session completes
+- FR3: System logs agent session to a file identified by session name and turn number
+- FR4: System detects git commits made by the agent during a turn
+- FR5: System returns TurnResult with outcome, message, and commit hash
 
-### Turn Management
+### Session & Turn Management
 
-- FR6: System assigns sequential turn numbers starting from 1
-- FR7: Each turn is labeled with its transition type (init, coding, etc.)
-- FR8: Logs and artifacts are named by turn number and transition type
-- FR9: User can reference a specific turn by number for operations
-
-### State Management
-
-- FR10: User can rewind repository to a specific previous turn's commit
-- FR11: User can restart agent execution from a rewound state with fresh context
-- FR12: System tracks which commits were made by agent vs user
-
-### Loop Orchestration
-
-- FR13: User can run a predefined trivial loop (Init → Coding → Coding...)
-- FR14: User can define which prompt to run next based on previous results
-- FR15: Loop terminates when state machine reaches a terminal state (no exits)
-- FR16: User can interrupt a running loop
-- FR17: User can manually set the state machine to a specific state after interruption
-- FR18: User can configure maximum turns to limit loop execution
-
-### CLI Interface
-
-- FR19: User can run afk in interactive mode with menus for exploration
-- FR20: User can run afk in headless mode with flags for automation
-- FR21: User can specify configuration via command-line flags
-- FR22: User can persist default configuration in `.afk` project file
-- FR23: Command-line flags override `.afk` file settings
+- FR6: User can create a named Session in a git repository
+- FR7: System tags session start as `afk-{session_name}-0`
+- FR8: System assigns sequential turn numbers starting from 1
+- FR9: System tags each completed turn as `afk-{session_name}-{turn_number}`
+- FR10: User can checkout any turn tag to rewind (standard git operation)
 
 ### Project Setup
 
-- FR24: User can clone the afk repo and run it directly
-- FR25: User can scaffold a new project with predefined prompt locations
-- FR26: System provides Init and Coding prompts as starting templates
+- FR11: User can clone the afk repo and import the library
+- FR12: System provides example prompts demonstrating outcome signaling
 
 ## Non-Functional Requirements
 
 ### Performance
 
-- NFR1: Framework overhead is negligible compared to LLM latency (framework should never be the bottleneck)
+- NFR1: Library overhead is negligible compared to LLM latency
 
 ### Integration
 
 - NFR2: System gracefully handles Claude Code CLI unavailability (clear error message)
-- NFR3: System adapts to Claude Code CLI output format changes with minimal code changes (driver abstraction)
-- NFR4: System does not depend on specific Claude Code CLI version beyond documented minimum
+- NFR3: Driver abstraction isolates CLI interface changes
+- NFR4: No dependency on specific Claude Code CLI version beyond documented minimum
 
 ### Reliability
 
-- NFR5: System recovers cleanly from interrupted sessions (Ctrl+C leaves no orphan processes)
-- NFR6: System preserves all logs and state even if session crashes mid-turn
-- NFR7: System never corrupts git repository state (worst case: uncommitted changes, not broken repo)
-- NFR8: On unrecoverable error during a turn, system rewinds to last committed state and halts cleanly
+- NFR5: Clean interrupt handling (Ctrl+C leaves no orphan processes)
+- NFR6: Logs preserved even if session crashes mid-turn
+- NFR7: Never corrupts git repository state (worst case: uncommitted changes, not broken repo)
 
 ### Maintainability
 
-- NFR9: Adding a new transition type requires changes to < 3 files
-- NFR10: Codebase is small enough for a single developer to hold in head (target: < 1000 LOC core)
-
-### Replayability
-
-- NFR11: System supports replaying from any previous turn state without side effects (rewind and retry is a core workflow)
+- NFR8: Codebase small enough for single developer to hold in head (target: < 500 LOC core)
 

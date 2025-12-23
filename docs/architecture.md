@@ -179,13 +179,13 @@ The driver calls the fake CLI exactly as it would call the real one. Tests verif
 
 ## Core Architectural Decisions
 
-### CLI Framework
+### No CLI
 
-**Decision:** `click`
+**Decision:** Library only, no CLI
 
-Mature, widely used (since 2014), extensively documented, heavily represented in training data. Boring technology that works.
+afk is a Python library, not a command-line tool. Users import `afk` and write their own scripts. No click, no argparse, no interactive menus.
 
-Rejected `typer` (type hints for CLI parsing don't solve a real problem—it's runtime conversion either way) and `argparse` (verbose, less ergonomic).
+Rationale: CLI adds complexity without value. User code decides how to invoke the library.
 
 ### Driver Interface
 
@@ -194,7 +194,7 @@ Rejected `typer` (type hints for CLI parsing don't solve a real problem—it's r
 - `script` makes Claude Code think it's in a terminal (streams properly)
 - Tees output to log file (observability)
 - Post-commit hook kills agent on graceful completion
-- Framework waits for process exit, checks for commit, returns result or raises exception
+- Library waits for process exit, checks for commit, returns result or raises exception
 
 **Graceful completion:** Agent commits with outcome in message → post-commit hook kills process → framework reads outcome.
 
@@ -287,40 +287,25 @@ class TurnResult:
 
 ```
 afk/                              # Main repo
-├── afk/                          # Framework module
-│   ├── __init__.py
-│   ├── cli.py                    # Entry point (click)
+├── afk/                          # Library module
+│   ├── __init__.py               # Public API: Session, TurnResult
 │   ├── driver.py                 # Claude Code CLI wrapper (script, process mgmt)
-│   ├── machine.py                # State machine execution logic
-│   ├── session.py                # Session tracking
-│   ├── turn.py                   # Turn execution
-│   ├── transition.py             # Transition definitions
-│   ├── prompt.py                 # Prompt loading and wrapping
-│   ├── revision.py               # Git revision state
-│   ├── commit.py                 # Commit parsing (conventional + outcome)
-│   └── git.py                    # Git operations
+│   ├── session.py                # Session with turns and git tagging
+│   ├── turn.py                   # Turn execution and state
+│   └── git.py                    # Git operations (commits, tags, queries)
 ├── tests/
 │   ├── test_driver.py
-│   ├── test_machine.py
-│   ├── test_commit.py
+│   ├── test_session.py
+│   ├── test_turn.py
 │   ├── test_git.py
 │   └── fixtures/
-│       ├── cli_success.py        # Fake CLI: one commit, success
-│       ├── cli_failure.py        # Fake CLI: one commit, failure
-│       ├── cli_no_commit.py      # Fake CLI: exits without commit
-│       ├── cli_multi_commit.py   # Fake CLI: multiple commits
-│       └── cli_timeout.py        # Fake CLI: hangs
-├── trivial-loop/                 # Experiment: trivial loop
-│   ├── run.py                    # Loop implementation
+│       ├── fake_claude.py        # Fake CLI: configurable behavior
+│       └── prompts/              # Test prompts
+├── examples/
+│   ├── tracer_bullet.py          # Minimal 1-turn validation
 │   └── prompts/
-│       ├── init.md
-│       └── coding.md
-├── docs/                         # BMad artifacts
-│   ├── prd.md
-│   ├── domain-model.md
-│   ├── architecture.md
-│   ├── version-control-rules.md
-│   └── project-context.md        # Generated after architecture
+│       └── hello_world.md        # Simple prompt for tracer bullet
+├── docs/                         # Project artifacts
 ├── pyproject.toml
 ├── README.md
 └── CLAUDE.md                     # Points to docs/project-context.md
@@ -359,39 +344,34 @@ Run workspaces live outside the repo entirely:
 
 | PRD Requirement | Implementation Location |
 |-----------------|------------------------|
-| FR1-5: Prompt Execution | `driver.py`, `prompt.py` |
-| FR6-9: Turn Management | `turn.py`, `session.py` |
-| FR10-12: State Management | `git.py`, `revision.py` |
-| FR13-18: Loop Orchestration | `machine.py`, experiment's `run.py` |
-| FR19-23: CLI Interface | `cli.py` |
-| FR24-26: Project Setup | `pyproject.toml`, README |
+| FR1-5: Prompt Execution | `driver.py`, `turn.py` |
+| FR6-9: Session & Turn Management | `session.py`, `turn.py`, `git.py` |
+| FR10: Rewind via Tags | `git.py` (user does checkout) |
+| FR11-12: Project Setup | `pyproject.toml`, README, `examples/` |
 
 ## Architecture Validation Results
 
 ### Coherence Validation ✅
 
-**Decision Compatibility:** All technology choices (Python, click, pytest, ruff) are standard, mature, and work together without conflicts.
+**Decision Compatibility:** All technology choices (Python, pytest, ruff) are standard, mature, and work together without conflicts.
 
 **Pattern Consistency:** Standard Python conventions throughout. No exotic patterns or conflicting styles.
 
-**Structure Alignment:** Flat module structure supports the "minimal framework" goal. Clear boundaries between framework, experiments, and runs.
+**Structure Alignment:** Flat module structure supports the "minimal library" goal. Clear boundaries between library and user code.
 
 ### Requirements Coverage Validation ✅
 
 **Functional Requirements:**
-- FR1-5 (Prompt Execution): Covered by `driver.py`, `prompt.py`, `script` wrapper
-- FR6-9 (Turn Management): Covered by `turn.py`, `session.py`
-- FR10-12 (State Management): Covered by `git.py`, `revision.py`, runs as separate repos
-- FR13-18 (Loop Orchestration): Covered by `machine.py`, experiment's `run.py`
-- FR19-23 (CLI Interface): Covered by `cli.py` with click
-- FR24-26 (Project Setup): Covered by `pyproject.toml`, README
+- FR1-5 (Prompt Execution): Covered by `driver.py`, `turn.py`, `script` wrapper
+- FR6-9 (Session & Turn Management): Covered by `session.py`, `turn.py`, `git.py`
+- FR10 (Rewind via Tags): Covered by `git.py` tagging; user does checkout
+- FR11-12 (Project Setup): Covered by `pyproject.toml`, README, `examples/`
 
 **Non-Functional Requirements:**
-- NFR1 (Performance): Framework is thin wrapper, negligible overhead
+- NFR1 (Performance): Library is thin wrapper, negligible overhead
 - NFR2-4 (Integration): Driver abstraction isolates CLI dependency
-- NFR5-8 (Reliability): Exception propagation, git never corrupted, clean crash behavior
-- NFR9-10 (Maintainability): Target < 1000 LOC, flat structure, one file per entity
-- NFR11 (Replayability): Runs as separate git repos, rewind = git reset
+- NFR5-7 (Reliability): Exception propagation, git never corrupted, clean crash behavior
+- NFR8 (Maintainability): Target < 500 LOC, flat structure
 
 ### Implementation Readiness Validation ✅
 
@@ -403,7 +383,7 @@ Run workspaces live outside the repo entirely:
 
 ### Gap Analysis Results
 
-No critical or important gaps identified. Architecture covers MVP scope.
+**Critical gap identified and addressed:** Driver never validated end-to-end. Tracer bullet epic added to MVP to close this gap.
 
 ### Architecture Completeness Checklist
 
@@ -414,38 +394,36 @@ No critical or important gaps identified. Architecture covers MVP scope.
 - [x] Cross-cutting concerns mapped (logging, git ops, process mgmt)
 
 **✅ Architectural Decisions**
-- [x] Core model defined (state machine executor)
-- [x] Technology stack specified (Python, click, pytest, ruff)
+- [x] Core model defined (session executes turns, git stores state)
+- [x] Technology stack specified (Python, pytest, ruff)
 - [x] Driver interface designed (script wrapper, post-commit hook)
-- [x] Smart defaults philosophy established
+- [x] No CLI decision documented
 
 **✅ Implementation Patterns**
 - [x] Python conventions (snake_case, PascalCase for classes)
 - [x] Exception handling (RuntimeError, propagate with stack trace)
 - [x] Result object (TurnResult dataclass)
-- [x] Commit schema (conventional commits + [outcome] footer)
+- [x] Commit schema (conventional commits + outcome footer)
 
 **✅ Project Structure**
 - [x] Complete directory structure defined
-- [x] Component boundaries established (framework / experiment / run)
+- [x] Component boundaries established (library / user code / workspace)
 - [x] Data flow mapped
 - [x] Requirements to structure mapping complete
 
 ### Architecture Readiness Assessment
 
-**Overall Status:** READY FOR IMPLEMENTATION
+**Overall Status:** READY FOR IMPLEMENTATION (pending tracer bullet validation)
 
-**Confidence Level:** High
+**Confidence Level:** Medium-High (driver untested)
 
 **Key Strengths:**
 - Simple, boring technology choices
-- Clear separation of concerns (framework vs experiment vs run)
 - Git-centric state model eliminates sync complexity
-- Smart defaults with application overrides
-- Procedural code, no declarative config
+- Library, not framework — user controls flow
+- Minimal surface area (4 source files)
 
-**Areas for Future Enhancement:**
-- Log file cleanup (strip ANSI codes)
-- Config mechanism if others need it
-- Additional experiments beyond trivial-loop
+**Immediate Priority:**
+- Tracer bullet to validate driver actually works
+- Then demo recreation to prove end-to-end value
 

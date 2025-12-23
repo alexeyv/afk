@@ -7,11 +7,13 @@ This file contains critical rules and patterns for AI agents implementing this c
 
 ## Core Concept
 
-afk is a **state machine executor**, not a loop orchestrator. The framework executes prompts and reports results. Loop logic lives in experiment code, not the framework.
+afk is a **Python library for autonomous coding turns**. The library executes prompts via Claude Code CLI and returns results. Loop logic, state machines, orchestration—that's user code, not library concern.
 
-- Git is the state machine. Revision = state. Commit = transition result.
-- The framework is stateless—everything it needs is in git.
+- Git is the database. Commit = turn result. Tags = turn boundaries.
+- The library is stateless—everything it needs is in git.
 - Each turn executes one prompt, produces one commit, extracts the outcome.
+- Sessions have names. Turns are tagged: `afk-{session}-{turn_number}`.
+- Rewind = checkout a tag, branch, start new session. Standard git workflow.
 - Runs live in separate git repos outside the afk codebase.
 
 ## Technology Stack
@@ -71,22 +73,22 @@ outcome: success
 ### Project Structure
 
 ```
-afk/                          # Framework module
-├── cli.py                    # Entry point (click)
+afk/                          # Library module
+├── __init__.py               # Public API: Session, TurnResult
 ├── driver.py                 # Claude Code CLI wrapper
-├── machine.py                # State machine execution
-├── git.py                    # Git operations
-└── ...                       # One file per domain entity
+├── session.py                # Session with turns and tagging
+├── turn.py                   # Turn execution
+└── git.py                    # Git operations
 
-tests/                        # Framework tests only
+tests/                        # Library tests only
 ├── test_*.py                 # Mirror afk/*.py
 └── fixtures/                 # Fake CLI scripts
 
-trivial-loop/                 # Experiments live alongside framework
-├── run.py
+examples/                     # Usage examples
+├── tracer_bullet.py          # Minimal 1-turn validation
 └── prompts/
 
-docs/                         # BMad artifacts
+docs/                         # Project artifacts
 ```
 
 ### Architectural Boundaries

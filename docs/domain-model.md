@@ -1,8 +1,9 @@
 # AFK Domain Model
 
 Generated: 2025-12-14
+Updated: 2025-12-16 (scope change - library, not framework)
 
-This diagram shows the core entities of the AFK framework, their attributes, and relationships.
+This diagram shows the core entities of the AFK library, their attributes, and relationships.
 
 ## Class Diagram
 
@@ -18,6 +19,12 @@ classDiagram
         +parse_commit_message(hash) tuple
         +root_commit() str
         +commits_between(since, until) list
+        +is_repo() bool
+        +init() void
+        +commit_empty(message) str
+        +is_empty_directory() bool
+        +tag_exists(name) bool
+        +tag(name, commit_hash) void
     }
 
     class Driver {
@@ -74,9 +81,6 @@ classDiagram
         +execute(prompt) int
         +finish(outcome, commit_hash, message) TurnResult
         +abort(exception) void
-        +allocate_turn_number()$ int
-        +reset_turn_counter()$ void
-        +MAX_TURN_NUMBER$ int
     }
 
     class TurnLog {
@@ -92,19 +96,24 @@ classDiagram
 
     class Session {
         -Path _root_dir
+        -str _name
         -Driver _driver
         -Git _git
         -list~TurnResult~ _turns
+        -int _next_turn_number
         +root_dir Path
+        +name str
         +log_dir Path
         +turns tuple~TurnResult~
+        +allocate_turn_number() int
         +execute_turn(prompt, transition_type) TurnResult
-        +current_turn_result(exit_code, log_file, head_before) tuple
+        +build_turn_result(turn, exit_code) TurnResult
         +add_turn(result)
         +turn(n) TurnResult
         +__iter__() Iterator~TurnResult~
         +__len__() int
         +__getitem__(n) TurnResult
+        +MAX_TURN_NUMBER$ int
     }
 
     %% Composition (ownership)
@@ -149,7 +158,7 @@ classDiagram
 | **TransitionType** | Validated state label (e.g., "init", "coding") | Yes (value object) |
 | **Turn** | Mutable state machine for active turn execution | No (state machine) |
 | **TurnLog** | Manages log file paths and writes turn lifecycle events | No |
-| **Session** | Orchestrates turns, owns driver, git, and stores TurnResult history. `current_turn_result()` is an extension point for custom validation policies. | No |
+| **Session** | Orchestrates turns, owns driver, git, and stores TurnResult history. Named sessions with git tagging for rewind support. `build_turn_result()` is an extension point for custom validation policies. | No |
 
 ## Turn State Machine
 
@@ -183,11 +192,13 @@ classDiagram
 ```
 Session.execute_turn(prompt, transition_type)
     |
-    +-> Turn(driver, git, session_root)  // creates in INITIAL state
-    |       |
-    |       +-> allocates turn number
+    +-> allocate_turn_number()         // get next turn number
     |
-    +-> turn.start(transition_type)    // INITIAL -> IN_PROGRESS
+    +-> pre-check tag afk-{name}-{N}   // fail fast if tag exists
+    |
+    +-> Turn(driver, git, session_root)  // creates in INITIAL state
+    |
+    +-> turn.start(turn_number, transition_type)  // INITIAL -> IN_PROGRESS
     |       |
     |       +-> captures HEAD before
     |       +-> creates TurnLog
@@ -198,20 +209,17 @@ Session.execute_turn(prompt, transition_type)
     |       +-> Driver.run()           // execute prompt
     |       +-> returns exit code
     |
-    +-> session.current_turn_result(exit_code, log_file, head_before)
+    +-> session.build_turn_result(turn, exit_code)
     |       |
     |       +-> checks exit code
     |       +-> Git.head_commit()      // after
     |       +-> Git.commits_between()
     |       +-> Git.parse_commit_message()
-    |       +-> returns (outcome, commit_hash, message)
-    |
-    +-> turn.finish(outcome, commit_hash, message) // IN_PROGRESS -> FINISHED
-    |       |
-    |       +-> logs END marker
     |       +-> returns TurnResult
     |
     +-> Session._add_result(result)    // stores in history
+    |
+    +-> Git.tag(afk-{name}-{N}, commit_hash)  // tag turn boundary
 ```
 
 ### On Error
@@ -239,5 +247,5 @@ Session.execute_turn(prompt, transition_type)
 | **Turn.start()** | TransitionType type |
 | **Turn.execute/finish/abort()** | State is IN_PROGRESS |
 | **TurnLog** | Construction: number range, type, Path for session_root |
-| **Session** | Construction: absolute directory path, valid Driver, valid Git |
-| **Session.current_turn_result()** | Runtime: exactly one commit, zero exit code, ancestry path |
+| **Session** | Construction: absolute directory path, name (alphanumeric+underscore, max 64 chars), valid Driver, valid Git |
+| **Session.build_turn_result()** | Runtime: exactly one commit, zero exit code, ancestry path |
