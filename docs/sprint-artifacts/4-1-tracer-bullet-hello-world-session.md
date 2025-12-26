@@ -1,6 +1,6 @@
 # Story 4.1: Tracer Bullet — Hello World Session
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -24,14 +24,14 @@ so that I can validate the driver works end-to-end with real Claude Code CLI.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create examples directory structure (AC: #1, #2)
-  - [ ] 1.1: Create `examples/` directory
-  - [ ] 1.2: Create `examples/prompts/` subdirectory
+- [x] Task 1: Create examples directory structure (AC: #1, #2)
+  - [x] 1.1: Create `examples/` directory
+  - [x] 1.2: Create `examples/prompts/` subdirectory
 
-- [ ] Task 2: Create hello_world.md prompt with outcome signaling (AC: #1)
-  - [ ] 2.1: Write prompt that instructs Claude to create hello.py (see example below)
-  - [ ] 2.2: Include explicit outcome signaling instructions (conventional commit with `outcome: success` footer)
-  - [ ] 2.3: Include constraint for single commit
+- [x] Task 2: Create hello_world.md prompt with outcome signaling (AC: #1)
+  - [x] 2.1: Write prompt that instructs Claude to create hello.py (see example below)
+  - [x] 2.2: Include explicit outcome signaling instructions (conventional commit with `outcome: success` footer)
+  - [x] 2.3: Include constraint for single commit
 
   **Example prompt structure:**
   ```
@@ -43,30 +43,30 @@ so that I can validate the driver works end-to-end with real Claude Code CLI.
   - Use exactly ONE commit for all changes
   ```
 
-- [ ] Task 3: Create tracer_bullet.py script (AC: #1, #2)
-  - [ ] 3.1: Create script skeleton (imports, create workspace dir if not exists)
-  - [ ] 3.2: Instantiate Driver, Git, Session (workspace dir must exist first!)
-  - [ ] 3.3: Read prompt from `examples/prompts/hello_world.md`
-  - [ ] 3.4: Execute one turn with `TransitionType("init")` (NOT enum-style)
-  - [ ] 3.5: Print TurnResult showing outcome, commit_hash, message
-  - [ ] 3.6: Verify git tags exist
-  - [ ] 3.7: Handle expected errors (CLI unavailable, no commit, etc.)
+- [x] Task 3: Create tracer_bullet.py script (AC: #1, #2)
+  - [x] 3.1: Create script skeleton (imports, create workspace dir if not exists)
+  - [x] 3.2: Instantiate Driver, Git, Session (workspace dir must exist first!)
+  - [x] 3.3: Read prompt from `examples/prompts/hello_world.md`
+  - [x] 3.4: Execute one turn with `TransitionType("init")` (NOT enum-style)
+  - [x] 3.5: Print TurnResult showing outcome, commit_hash, message
+  - [x] 3.6: Verify git tags exist
+  - [x] 3.7: Handle expected errors (CLI unavailable, no commit, etc.)
 
-- [ ] Task 4: Run end-to-end validation (AC: #1, #2)
-  - [ ] 4.1: Create fresh workspace directory (e.g., `~/runs/tracer-001/`) — use unique name
-  - [ ] 4.2: Run tracer_bullet.py against real Claude Code CLI
-  - [ ] 4.3: Verify hello.py exists and runs (`python hello.py` → outputs "hello world")
-  - [ ] 4.4: Verify git log shows commit with `outcome: success` footer
-  - [ ] 4.5: Verify `git tag` shows both `afk-{session}-0` and `afk-{session}-1`
-  - [ ] 4.6: Check `workspace/logs/` for turn log files (useful for debugging)
+- [x] Task 4: Run end-to-end validation (AC: #1, #2)
+  - [x] 4.1: Create fresh workspace directory (e.g., `~/runs/tracer-001/`) — use unique name
+  - [x] 4.2: Run tracer_bullet.py against real Claude Code CLI
+  - [x] 4.3: Verify hello.py exists and runs (`python hello.py` → outputs "hello world")
+  - [x] 4.4: Verify git log shows commit with `outcome: success` footer
+  - [x] 4.5: Verify `git tag` shows both `afk-{session}-0` and `afk-{session}-1`
+  - [x] 4.6: Check `workspace/logs/` for turn log files (useful for debugging)
 
-- [ ] Task 5: Document any driver issues discovered (AC: #1)
-  - [ ] 5.1: If issues found, document in story completion notes
-  - [ ] 5.2: If fixes needed, create follow-up tasks
+- [x] Task 5: Document any driver issues discovered (AC: #1)
+  - [x] 5.1: If issues found, document in story completion notes
+  - [x] 5.2: If fixes needed, create follow-up tasks
 
-- [ ] Task 6: Verify complete success (AC: #1, #2)
-  - [ ] 6.1: All acceptance criteria validated
-  - [ ] 6.2: No driver issues blocking success
+- [x] Task 6: Verify complete success (AC: #1, #2)
+  - [x] 6.1: All acceptance criteria validated
+  - [x] 6.2: No driver issues blocking success
 
 ## Dev Notes
 
@@ -234,10 +234,35 @@ This matches the documented structure. [Source: docs/architecture.md#Project-Str
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
+- Turn log: `~/runs/tracer-{timestamp}/logs/turn-00001-init.log`
+
 ### Completion Notes List
 
+1. **Framework Validation**: Tracer bullet successfully validated the afk framework works end-to-end with real Claude Code CLI:
+   - Driver correctly executes Claude CLI via `script` wrapper
+   - Session properly initializes git repos and manages tags
+   - Commit detection and outcome parsing work correctly
+   - All acceptance criteria validated
+
+2. **No Driver Issues Found**: The framework works as designed. The only configuration requirement discovered is that Claude CLI workspaces need permission configuration for autonomous file operations (expected behavior, not a bug).
+
+3. **Workspace Setup**: The tracer_bullet.py script now includes automatic Claude permission configuration, creating `.claude/settings.local.json` with appropriate allowlist for file write and git operations.
+
+4. **End-to-End Results**:
+   - Outcome: `success`
+   - Commit hash: `3fc356db39e54a6b6bc2361a432f4e04ec3525f3`
+   - Tags: `afk-tracer_012443-0` (session start), `afk-tracer_012443-1` (turn 1)
+   - File created: `hello.py` with correct output
+
 ### File List
+
+- `examples/tracer_bullet.py` (new) - Main tracer bullet script
+- `examples/prompts/hello_world.md` (new) - Prompt file for hello world task
+
+### Change Log
+
+- 2025-12-26: Story 4.1 implemented - tracer bullet validates framework end-to-end
